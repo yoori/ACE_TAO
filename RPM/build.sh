@@ -1,8 +1,8 @@
 #!/bin/bash
 
-VERSION="7.0.9.1"
-RELEASE=ssv1
-TAG=7.0.9.1
+VERSION=$1
+RELEASE=$2
+TAG=$VERSION-$RELEASE
 
 # script require 'sudo rpm' for install RPM packages
 # and access to mirror.yandex.ru repository
@@ -74,4 +74,4 @@ rpmbuild --force -ba --define "_version $VERSION" --define "_release $RELEASE" "
   { echo "can't build RPM" >&2 ; exit 1 ; }
 
 # install
-cp $BIN_RPM_FOLDER/xgboost*.rpm $RES_RPMS/
+cp $BIN_RPM_FOLDER/ace-tao-*.rpm $RES_RPMS/
