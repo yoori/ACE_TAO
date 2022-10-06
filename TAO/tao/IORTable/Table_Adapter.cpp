@@ -126,7 +126,7 @@ CORBA::Long
 TAO_Table_Adapter::initialize_collocated_object (TAO_Stub *stub)
 {
   // Get the effective profile set.
-  const TAO_MProfile &mp = stub->forward_profiles () ? *(stub->forward_profiles ())
+  const TAO_MProfile &mp = stub->forward_profiles_i () ? *(stub->forward_profiles_i ())
                                                      : stub->base_profiles ();
   TAO_PHandle j = 0;
   // We only look at the key from the 0th profile but we only really care about

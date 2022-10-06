@@ -293,17 +293,25 @@ namespace TAO
       ImplementationRepository::ServerObject_var svr
         = ImplementationRepository::ServerObject::_narrow (obj.in ());
 
-      if (!svr->_stubobj () || !svr->_stubobj ()->profile_in_use ())
+      if (!svr->_stubobj ())
+      {
+        if (TAO_debug_level > 0)
         {
-          if (TAO_debug_level > 0)
-            {
-              TAOLIB_ERROR ((LM_ERROR, "TAO_ImR_Client (%P|%t) - Invalid ImR ServerObject, bailing out.\n"));
-            }
-          return;
+          TAOLIB_ERROR ((LM_ERROR, "TAO_ImR_Client (%P|%t) - Invalid ImR ServerObject, bailing out.\n"));
         }
+        return;
+      }
+
+      TAO_Profile_var profile_in_use = svr->_stubobj ()->profile_in_use_pre_inc ();
+      if(!profile_in_use)
+      {
+        TAOLIB_ERROR ((LM_ERROR, "Invalid ImR ServerObject, bailing out.\n"));
+        return;
+      }
+
       CORBA::ORB_var orb = root_poa->_get_orb ();
       CORBA::String_var full_ior = orb->object_to_string (obj.in ());
-      TAO_Profile& profile = *(svr->_stubobj ()->profile_in_use ());
+      TAO_Profile& profile = *profile_in_use;
       CORBA::String_var ior = profile.to_string();
       if (TAO_debug_level > 0)
         {
@@ -471,7 +479,7 @@ namespace TAO
 
       if (CORBA::is_nil (imr.in ())
           || !imr->_stubobj ()
-          || !imr->_stubobj ()->profile_in_use ())
+          || !imr->_stubobj ()->profile_in_use_ptr ())
         {
           if (TAO_debug_level > 1)
             {
@@ -496,8 +504,9 @@ namespace TAO
 
       // need to combine each profile in the ImR with the key and
       // then merge them all together into one ImR-ified ior
+      TAO_Profile_var profile_in_use = imr->_stubobj ()->profile_in_use_pre_inc ();
       ImRifyProfiles imrify (base_profiles,
-                             imr->_stubobj ()->profile_in_use (),
+                             profile_in_use,
                              orb_core,
                              key_str,
                              type_id);

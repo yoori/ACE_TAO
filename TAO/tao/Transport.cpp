@@ -118,7 +118,7 @@ TAO_Transport::TAO_Transport (CORBA::ULong tag,
                               size_t input_cdr_size)
   : tag_ (tag)
   , orb_core_ (orb_core)
-  , cache_map_entry_ (nullptr)
+  , cache_map_entry_ ()
   , tms_ (nullptr)
   , ws_ (nullptr)
   , bidirectional_flag_ (-1)
@@ -212,7 +212,7 @@ TAO_Transport::~TAO_Transport ()
   // The following assert is needed for the test "Bug_2494_Regression".
   // See the bugzilla bug #2494 for details.
   ACE_ASSERT (this->queue_is_empty_i ());
-  ACE_ASSERT (this->cache_map_entry_ == nullptr);
+  ACE_ASSERT (this->cache_map_entry_ == 0);
 
 #if TAO_HAS_TRANSPORT_CURRENT == 1
   delete this->stats_;
@@ -525,7 +525,7 @@ TAO_Transport::purge_entry ()
       TAOLIB_DEBUG ((LM_DEBUG,
                   ACE_TEXT ("TAO (%P|%t) - Transport[%d]::purge_entry, ")
                   ACE_TEXT ("entry is %@\n"),
-                  this->id (), this->cache_map_entry_));
+                  this->id (), this->cache_map_entry_.item));
     }
 
   return this->transport_cache_manager ().purge_entry (this->cache_map_entry_);
@@ -788,6 +788,17 @@ TAO_Transport::send_reply_message_i (const ACE_Message_Block *mb,
   // Clone the node that we have.
   TAO_Queued_Message *msg =
     synch_message.clone (this->orb_core_->transport_message_buffer_allocator ());
+
+  if (!msg)
+    {
+      if (TAO_debug_level > 1)
+        {
+          TAOLIB_DEBUG ((LM_ERROR, "TAO (%P|%t) - Transport[%d]::send_reply_"
+                      "message_i, msg cloning failure\n", this->id ()));
+        }
+
+      return -1;
+    }
 
   // Stick it in the queue
   msg->push_back (this->head_, this->tail_);

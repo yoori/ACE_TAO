@@ -724,7 +724,7 @@ project(TAO) : acelib, install, tao_output, taodefaults, pidl, extra_core, taoid
     ../NEWS
     ../COPYING*
     ../docs
-    ../MPC
+//    ../MPC
   }
 
   verbatim(gnuace, postinstall) {

@@ -109,8 +109,9 @@ TAO_ClientRequestInfo::effective_profile ()
   TAO_Stub *stub =
     this->invocation_->effective_target ()->_stubobj ();
 
-  IOP::TaggedProfile *ep =
-    stub->profile_in_use ()->create_tagged_profile ();
+  TAO_Profile_var profile_in_use = stub->profile_in_use_pre_inc ();
+
+  IOP::TaggedProfile *ep = profile_in_use->create_tagged_profile ();
 
   if (ep == 0)
     {
@@ -184,7 +185,9 @@ TAO_ClientRequestInfo::get_effective_component (IOP::ComponentId id)
 
   TAO_Stub *stub = this->invocation_->effective_target ()->_stubobj ();
 
-  TAO_Tagged_Components &ecs = stub->profile_in_use ()->tagged_components ();
+  TAO_Profile_var profile_in_use = stub->profile_in_use_pre_inc ();
+
+  TAO_Tagged_Components &ecs = profile_in_use->tagged_components ();
 
   IOP::MultipleComponentProfile &components = ecs.components ();
 
@@ -226,7 +229,9 @@ TAO_ClientRequestInfo::get_effective_components (IOP::ComponentId id)
 
   TAO_Stub *stub = this->invocation_->target ()->_stubobj ();
 
-  TAO_Tagged_Components &ecs = stub->profile_in_use ()->tagged_components ();
+  TAO_Profile_var profile_in_use = stub->profile_in_use_pre_inc ();
+
+  TAO_Tagged_Components &ecs = profile_in_use->tagged_components ();
 
   IOP::MultipleComponentProfile &components = ecs.components ();
 

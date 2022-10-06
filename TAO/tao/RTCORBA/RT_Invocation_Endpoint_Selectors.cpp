@@ -36,7 +36,7 @@ TAO_RT_Invocation_Endpoint_Selector::select_endpoint (
     {
       do
         {
-          r->profile (r->stub ()->profile_in_use ());
+          r->profile (r->stub ()->profile_in_use_pre_inc (), true);
 
           if (this->endpoint_from_profile (*r, val) == 1)
             return;
@@ -95,8 +95,10 @@ TAO_RT_Invocation_Endpoint_Selector::select_endpoint_based_on_client_protocol_po
     {
       // Find the profiles that match the current protocol.
       TAO_Profile *profile = 0;
-      TAO_MProfile &mprofile = (r.stub ()->forward_profiles() == 0) ?
-        r.stub ()->base_profiles () : *r.stub ()->forward_profiles();
+      // exception unsafe part (delete_mprofile can leak)
+      TAO_MProfile* delete_mprofile = r.stub ()->make_forward_profiles();
+      TAO_MProfile &mprofile = (delete_mprofile == 0) ?
+        r.stub ()->base_profiles () : *delete_mprofile;
 
       for (TAO_PHandle i = 0;
            i < mprofile.profile_count ();
@@ -111,10 +113,15 @@ TAO_RT_Invocation_Endpoint_Selector::select_endpoint_based_on_client_protocol_po
               r.profile (profile);
 
               if (this->endpoint_from_profile (r, val) == 1)
+              {
+                delete delete_mprofile;
                 return;
+              }
               // @@ Else we should check for potential forwarding here.
             }
         }
+
+      delete delete_mprofile;
     }
 
   // We have tried all the profiles specified in the client protocol

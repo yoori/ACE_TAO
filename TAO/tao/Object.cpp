@@ -312,8 +312,15 @@ CORBA::Object::_key ()
 {
   TAO_OBJECT_IOR_EVALUATE_RETURN;
 
-  if (this->_stubobj () && this->_stubobj ()->profile_in_use ())
-    return this->_stubobj ()->profile_in_use ()->_key ();
+  if (this->_stubobj ())
+  {
+    TAO_Profile_var profile_in_use = this->_stubobj ()->profile_in_use_pre_inc();
+
+    if(profile_in_use)
+    {
+      return profile_in_use->_key ();
+    }
+  }
 
   if (TAO_debug_level > 2)
     {

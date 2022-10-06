@@ -52,10 +52,15 @@ namespace CORBA
 class TAO_Export TAO_Profile
 {
 public:
+  typedef TAO_Profile* _ptr_type;
+
+public:
   /// Constructor
   TAO_Profile (CORBA::ULong tag,
                TAO_ORB_Core *orb_core,
                const TAO_GIOP_Message_Version &version);
+
+  static TAO_Profile* _duplicate (TAO_Profile* obj);
 
   /**
    * @name Non virtual methods for the profile classes.
@@ -72,10 +77,16 @@ public:
   TAO_ORB_Core *orb_core () const;
 
   /// Increase the reference count by one on this object.
+  unsigned long _incr_refcount (void);
+
+  /// Compatibility: Increase the reference count by one on this object.
   unsigned long _incr_refcnt ();
 
   /// Decrement the object's reference count.  When this count goes to
   /// 0 this object will be deleted.
+  unsigned long _decr_refcount (void);
+
+  /// Compatibility: Decrement the object's reference count.  When this count goes to
   unsigned long _decr_refcnt ();
 
   /// Keep a pointer to the forwarded profile
@@ -383,6 +394,8 @@ private:
   /// tagged_profile_ building is finished.
   bool tagged_profile_created_;
 };
+
+typedef TAO_Pseudo_Var_T<TAO_Profile> TAO_Profile_var;
 
 // A helper class to handle the various kinds of octet sequences used
 // inside the ORB.

@@ -32,6 +32,7 @@ namespace TAO
     : percent_ (percent)
     , purging_strategy_ (purging_strategy)
     , cache_map_ (cache_maximum)
+    , cache_size_ (0)
     , cache_lock_ (0)
     , cache_maximum_ (cache_maximum)
 #if defined (TAO_HAS_MONITOR_POINTS) && (TAO_HAS_MONITOR_POINTS == 1)
@@ -91,17 +92,17 @@ namespace TAO
 
   template <typename TT, typename TRDT, typename PSTRAT>
   void
-  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::set_entry_state (HASH_MAP_ENTRY *&entry,
+  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::set_entry_state (HASH_MAP_ENTRY &entry,
                                             TAO::Cache_Entries_State state)
   {
     ACE_MT (ACE_GUARD (ACE_Lock, guard, *this->cache_lock_));
     if (entry != 0)
       {
-        entry->item ().recycle_state (state);
+        entry.item->recycle_state (state);
         if (state != ENTRY_UNKNOWN && state != ENTRY_CONNECTING
-            && entry->item ().transport ())
-          entry->item ().is_connected (
-            entry->item ().transport ()->is_connected ());
+            && entry.item->transport ())
+          entry.item->is_connected (
+            entry.item->transport ()->is_connected ());
       }
   }
 
@@ -109,29 +110,26 @@ namespace TAO
   int
   Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::bind_i (
     Cache_ExtId &ext_id,
-    Cache_IntId &int_id)
+    Cache_IntId_Node &int_id)
   {
     if (TAO_debug_level > 4)
        {
          TAOLIB_DEBUG ((LM_INFO,
             ACE_TEXT ("TAO (%P|%t) - Transport_Cache_Manager_T::bind_i, ")
-            ACE_TEXT ("Transport[%d] @ hash:index{%d:%d}\n"),
+            ACE_TEXT ("Transport[%d] @ hash{%d}\n"),
             int_id.transport ()->id (),
-            ext_id.hash (),
-            ext_id.index ()));
+            ext_id.hash ()));
        }
 
     // Get the entry too
-    HASH_MAP_ENTRY *entry = 0;
+    HASH_MAP_ELEM *entry = 0;
 
     // Update the purging strategy information while we
     // are holding our lock
     this->purging_strategy_->update_item (*(int_id.transport ()));
     int retval = 0;
-    bool more_to_do = true;
-    while (more_to_do)
       {
-        if (this->cache_map_.current_size () >= cache_maximum_)
+        if (this->cache_size_ >= cache_maximum_)
           {
             retval = -1;
             if (TAO_debug_level > 0)
@@ -140,50 +138,60 @@ namespace TAO
                   ACE_TEXT("TAO (%P|%t) - Transport_Cache_Manager_T::bind_i, ")
                   ACE_TEXT("ERROR: unable to bind transport, cache is full\n")));
               }
-            more_to_do = false;
           }
         else
           {
-            retval = this->cache_map_.bind (ext_id, int_id, entry);
-            if (retval == 0)
+            retval = this->cache_map_.bind (ext_id, Cache_IntId (), entry);
+            if (retval >= 0)
               {
-                // The entry has been added to cache successfully
-                // Add the cache_map_entry to the transport
-                int_id.transport ()->cache_map_entry (entry);
-                more_to_do = false;
-              }
-            else if (retval == 1)
-              {
-                if (entry->item ().transport () == int_id.transport ())
+                Cache_IntId_Node *node = entry->item ().head ();
+                for (; node; node = node->next ())
+                {
+                  if (node->transport () == int_id.transport ())
                   {
+                    break;
+                  }
+                }
+                if (!node)
+                {
+                  ACE_NEW_NORETURN (node, Cache_IntId_Node (int_id));
+                  if (node)
+                  {
+                    entry->item ().push_back (node);
+                    this->cache_size_++;
+                    // The entry has been added to cache successfully
+                    // Add the cache_map_entry to the transport
+                    node->transport ()->cache_map_entry (HASH_MAP_ENTRY (entry, node));
+
+                    retval = 0;
+                  }
+                  else
+                  {
+                    if (TAO_debug_level > 0)
+                      {
+                        TAOLIB_ERROR ((LM_ERROR,
+                          ACE_TEXT("TAO (%P|%t) - Transport_Cache_Manager_T::bind_i, ")
+                          ACE_TEXT("ERROR: unable to bind transport\n")));
+                      }
+
+                    retval = -1;
+                  }
+                }
+                else
+                {
                     // update the cache status
                     // we are already holding the lock, do not call set_entry_state
-                    entry->item ().recycle_state (int_id.recycle_state ());
+                    node->recycle_state (int_id.recycle_state ());
                     if (TAO_debug_level > 9 &&
-                        entry->item ().is_connected () != int_id.is_connected ())
+                        node->is_connected () != int_id.is_connected ())
                       TAOLIB_DEBUG ((LM_DEBUG,
                                   ACE_TEXT ("TAO (%P|%t) - Transport_Cache_")
                                   ACE_TEXT ("Manager::bind_i, Updating existing ")
                                   ACE_TEXT ("entry sets is_connected to %C\n"),
                                   (int_id.is_connected () ? "true" : "false")));
 
-                    entry->item ().is_connected (int_id.is_connected ());
+                    node->is_connected (int_id.is_connected ());
                     retval = 0;
-                    more_to_do = false;
-                  }
-                else
-                {
-                  ext_id.index (ext_id.index () + 1);
-                  if (TAO_debug_level > 8)
-                    {
-                      TAOLIB_DEBUG ((LM_DEBUG,
-                        ACE_TEXT ("TAO (%P|%t) - Transport_Cache_Manager_T::bind_i, ")
-                        ACE_TEXT ("Unable to bind Transport[%d] @ hash:index{%d:%d}. ")
-                        ACE_TEXT ("Trying with a new index\n"),
-                        int_id.transport ()->id (),
-                        ext_id.hash (),
-                        ext_id.index ()));
-                    }
                 }
               }
             else
@@ -194,7 +202,6 @@ namespace TAO
                       ACE_TEXT("TAO (%P|%t) - Transport_Cache_Manager_T::bind_i, ")
                       ACE_TEXT("ERROR: unable to bind transport\n")));
                   }
-                more_to_do = false;
               }
           }
       }
@@ -204,17 +211,17 @@ namespace TAO
           {
             TAOLIB_DEBUG ((LM_INFO,
               ACE_TEXT ("TAO (%P|%t) - Transport_Cache_Manager_T::bind_i: ")
-              ACE_TEXT ("Success Transport[%d] @ hash:index{%d:%d}. ")
+              ACE_TEXT ("Success Transport[%d] @ hash{%d}. ")
               ACE_TEXT ("Cache size is [%d]\n"),
               int_id.transport ()->id (),
               ext_id.hash (),
-              ext_id.index (),
-              this->current_size ()));
+              this->cache_size_
+              ));
           }
       }
 
 #if defined (TAO_HAS_MONITOR_POINTS) && (TAO_HAS_MONITOR_POINTS == 1)
-    this->size_monitor_->receive (this->current_size ());
+    this->size_monitor_->receive (this->cache_size_);
 #endif /* TAO_HAS_MONITOR_POINTS==1 */
 
     return retval;
@@ -280,51 +287,50 @@ namespace TAO
 
     // Make a temporary object. It does not do a copy.
     Cache_ExtId key (prop);
-    HASH_MAP_ENTRY *entry = 0;
+    HASH_MAP_ELEM *entry = 0;
     busy_count = 0;
     int cache_status = 0;
-    HASH_MAP_ENTRY *found_entry = 0;
+    Cache_IntId_Node *found_entry = 0;
 
-    // loop until we find a usable transport, or until we've checked
-    // all cached entries for this endpoint
-    while (found != CACHE_FOUND_AVAILABLE && cache_status == 0)
-      {
-        entry = 0;
-        cache_status = this->cache_map_.find (key, entry);
-        if (cache_status == 0 && entry)
+    cache_status = this->cache_map_.find (key, entry);
+    if (cache_status == 0 && entry)
+    {
+          // loop until we find a usable transport, or until we've checked
+          // all cached entries for this endpoint
+          for (Cache_IntId_Node *node (entry->item ().head ()); found != CACHE_FOUND_AVAILABLE && node; node = node->next ())
           {
-            if (this->is_entry_available_i (*entry))
+            if (this->is_entry_available_i (node))
               {
                 // Successfully found a transport_type.
                 found = CACHE_FOUND_AVAILABLE;
-                found_entry = entry;
-                entry->item ().recycle_state (ENTRY_BUSY);
+                found_entry = node;
+                node->recycle_state (ENTRY_BUSY);
 
                 if (TAO_debug_level > 6)
                   {
                     TAOLIB_DEBUG ((LM_DEBUG,
                       ACE_TEXT ("TAO (%P|%t) - Transport_Cache_Manager_T::find_i, ")
-                      ACE_TEXT ("found available Transport[%d] @hash:index {%d:%d}\n"),
-                      entry->item ().transport ()->id (),
-                      entry->ext_id_.hash (),
-                      entry->ext_id_.index ()));
+                      ACE_TEXT ("Found available Transport[%d] @hash {%d}\n"),
+                      node->transport ()->id (),
+                      entry->ext_id_.hash ()
+                      ));
                   }
               }
-            else if (this->is_entry_connecting_i (*entry))
+            else if (this->is_entry_connecting_i (node))
               {
                 if (TAO_debug_level > 6)
                   {
                     TAOLIB_DEBUG ((LM_DEBUG,
                       ACE_TEXT ("TAO (%P|%t) - Transport_Cache_Manager_T::find_i, ")
-                      ACE_TEXT ("found connecting Transport[%d] @hash:index {%d:%d}\n"),
-                      entry->item ().transport ()->id (),
-                      entry->ext_id_.hash (),
-                      entry->ext_id_.index ()));
+                      ACE_TEXT ("Found connecting Transport[%d] @hash {%d}\n"),
+                      node->transport ()->id (),
+                      entry->ext_id_.hash ()
+                      ));
                   }
                 // if this is the first interesting entry
                 if (found != CACHE_FOUND_CONNECTING)
                   {
-                    found_entry = entry;
+                    found_entry = node;
                     found = CACHE_FOUND_CONNECTING;
                   }
               }
@@ -333,7 +339,7 @@ namespace TAO
                 // if this is the first busy entry
                 if (found == CACHE_FOUND_NONE && busy_count == 0)
                   {
-                    found_entry = entry;
+                    found_entry = node;
                     found = CACHE_FOUND_BUSY;
                   }
                 ++busy_count;
@@ -341,21 +347,31 @@ namespace TAO
                   {
                     TAOLIB_DEBUG ((LM_DEBUG,
                       ACE_TEXT ("TAO (%P|%t) - Transport_Cache_Manager_T::find_i, ")
-                      ACE_TEXT ("found busy Transport[%d] @hash:index {%d:%d}\n"),
-                      entry->item ().transport ()->id (),
-                      entry->ext_id_.hash (),
-                      entry->ext_id_.index ()
+                      ACE_TEXT ("Found busy Transport[%d] @hash {%d}\n"),
+                      node->transport ()->id (),
+                      entry->ext_id_.hash ()
                       ));
                   }
               }
           }
-
-        // Bump the index up
-        key.incr_index ();
-      }
+    }
     if (found_entry != 0)
     {
-      transport = found_entry->item ().transport ();
+      entry->item().remove (found_entry);
+      entry->item().push_back (found_entry);
+
+      if (TAO_debug_level > 6)
+        {
+          TAOLIB_DEBUG ((LM_DEBUG,
+            ACE_TEXT ("TAO (%P|%t) - Transport_Cache_Manager_T::find_i, ")
+            ACE_TEXT ("Returning Transport[%d] @hash {%d} @node {%@}\n"),
+            found_entry->transport ()->id (),
+            entry->ext_id_.hash (),
+            found_entry
+            ));
+        }
+
+      transport = found_entry->transport ();
       transport->add_reference ();
       if (found == CACHE_FOUND_AVAILABLE)
         {
@@ -369,16 +385,16 @@ namespace TAO
 
   template <typename TT, typename TRDT, typename PSTRAT>
   int
-  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::make_idle_i (HASH_MAP_ENTRY *entry)
+  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::make_idle_i (HASH_MAP_ENTRY &entry)
   {
-    entry->item ().recycle_state (ENTRY_IDLE_AND_PURGABLE);
+    entry.item->recycle_state (ENTRY_IDLE_AND_PURGABLE);
 
     return 0;
   }
 
   template <typename TT, typename TRDT, typename PSTRAT>
   int
-  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::update_entry (HASH_MAP_ENTRY *&entry)
+  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::update_entry (HASH_MAP_ENTRY &entry)
   {
     ACE_MT (ACE_GUARD_RETURN (ACE_Lock,
                               guard,
@@ -388,7 +404,7 @@ namespace TAO
       return -1;
 
     purging_strategy *st = this->purging_strategy_;
-    (void) st->update_item (*(entry->item ().transport ()));
+    (void) st->update_item (*(entry.item->transport ()));
 
     return 0;
   }
@@ -403,18 +419,22 @@ namespace TAO
          iter != end_iter;
          ++iter)
       {
-        // Get the transport to fill its associated connection's handler.
-        (*iter).int_id_.transport ()->provide_handler (handlers);
+        for (Cache_IntId_Node *node (iter->item ().head ()); node; node = node->next ())
+        {
+          // Get the transport to fill its associated connection's handler.
+          node->transport ()->provide_handler (handlers);
 
-        // Inform the transport that has a reference to the entry in the
-        // map that we are *gone* now. So, the transport should not use
-        // the reference to the entry that he has, to access us *at any
-        // time*.
-        (*iter).int_id_.transport ()->cache_map_entry (0);
+          // Inform the transport that has a reference to the entry in the
+          // map that we are *gone* now. So, the transport should not use
+          // the reference to the entry that he has, to access us *at any
+          // time*.
+          node->transport ()->cache_map_entry (HASH_MAP_ENTRY());
+        }
       }
 
     // Unbind all the entries in the map
     this->cache_map_.unbind_all ();
+    this->cache_size_ = 0;
 
     return 0;
   }
@@ -430,15 +450,18 @@ namespace TAO
          iter != end_iter;
          ++iter)
       {
-        // Get the transport to fill its associated connection's
-        // handler.
-        bool const retval =
-          (*iter).int_id_.transport ()->provide_blockable_handler (h);
+        for (Cache_IntId_Node *node (iter->item ().head ()); node; node = node->next ())
+        {
+          // Get the transport to fill its associated connection's
+          // handler.
+          bool const retval =
+            node->transport ()->provide_blockable_handler (h);
 
-        // Do not mark the entry as closed if we don't have a
-        // blockable handler added
-        if (retval)
-          (*iter).int_id_.recycle_state (ENTRY_CLOSED);
+          // Do not mark the entry as closed if we don't have a
+          // blockable handler added
+          if (retval)
+            node->recycle_state (ENTRY_CLOSED);
+        }
       }
 
     return true;
@@ -446,13 +469,16 @@ namespace TAO
 
   template <typename TT, typename TRDT, typename PSTRAT>
   int
-  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::purge_entry_i (HASH_MAP_ENTRY *entry)
+  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::purge_entry_i (HASH_MAP_ENTRY &entry)
   {
+    entry.elem->item ().remove (entry.item);
+    delete entry.item;
+    this->cache_size_--;
     // Remove the entry from the Map
-    int const retval = this->cache_map_.unbind (entry);
+    int retval = entry.elem->item ().is_empty () ? this->cache_map_.unbind (entry.elem) : 0;
 
 #if defined (TAO_HAS_MONITOR_POINTS) && (TAO_HAS_MONITOR_POINTS == 1)
-    this->size_monitor_->receive (this->current_size ());
+    this->size_monitor_->receive (this->cache_size_);
 #endif /* TAO_HAS_MONITOR_POINTS==1 */
 
     return retval;
@@ -460,15 +486,15 @@ namespace TAO
 
   template <typename TT, typename TRDT, typename PSTRAT>
   bool
-  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::is_entry_available_i (const HASH_MAP_ENTRY &entry)
+  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::is_entry_available_i (const Cache_IntId_Node *int_id)
   {
-    Cache_Entries_State entry_state = entry.int_id_.recycle_state ();
+    Cache_Entries_State entry_state = int_id->recycle_state ();
     bool result = (entry_state == ENTRY_IDLE_AND_PURGABLE);
 
-    if (result && entry.int_id_.transport () != 0)
+    if (result && int_id->transport () != 0)
     {
       // if it's not connected, it's not available
-      result = entry.int_id_.is_connected ();
+      result = int_id->is_connected ();
     }
 
     if (TAO_debug_level > 8)
@@ -476,9 +502,9 @@ namespace TAO
         TAOLIB_DEBUG ((LM_DEBUG,
                     ACE_TEXT ("TAO (%P|%t) - Transport_Cache_Manager_T::")
                     ACE_TEXT ("is_entry_available_i[%d], %C, state is %C\n"),
-                    entry.int_id_.transport () ? entry.int_id_.transport ()->id () : 0,
+                    int_id->transport () ? int_id->transport ()->id () : 0,
                     (result ? "true" : "false"),
-                    Cache_IntId::state_name (entry_state)));
+                    Cache_IntId_Node::state_name (entry_state)));
       }
 
     return result;
@@ -486,22 +512,22 @@ namespace TAO
 
   template <typename TT, typename TRDT, typename PSTRAT>
   bool
-  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::is_entry_purgable_i (HASH_MAP_ENTRY &entry)
+  Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::is_entry_purgable_i (Cache_IntId_Node *int_id)
   {
-    Cache_Entries_State const entry_state = entry.int_id_.recycle_state ();
-    transport_type* transport = entry.int_id_.transport ();
-    bool const result = (entry_state == ENTRY_IDLE_AND_PURGABLE ||
-                         entry_state == ENTRY_PURGABLE_BUT_NOT_IDLE)
-                         && transport->can_be_purged ();
+    Cache_Entries_State entry_state = int_id->recycle_state ();
+    transport_type* transport = int_id->transport ();
+    bool result = (entry_state == ENTRY_IDLE_AND_PURGABLE ||
+                   entry_state == ENTRY_PURGABLE_BUT_NOT_IDLE)
+                   && transport->can_be_purged ();
 
     if (TAO_debug_level > 8)
       {
         TAOLIB_DEBUG ((LM_DEBUG,
                     ACE_TEXT ("TAO (%P|%t) - Transport_Cache_Manager_T::")
                     ACE_TEXT ("is_entry_purgable_i[%d], %C, state is %C\n"),
-                    entry.int_id_.transport ()->id (),
+                    int_id->transport ()->id (),
                     (result ? "true" : "false"),
-                    Cache_IntId::state_name (entry_state)));
+                    Cache_IntId_Node::state_name (entry_state)));
       }
 
     return result;
@@ -510,16 +536,16 @@ namespace TAO
   template <typename TT, typename TRDT, typename PSTRAT>
   bool
   Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::
-    is_entry_connecting_i (const HASH_MAP_ENTRY &entry)
+    is_entry_connecting_i (const Cache_IntId_Node *int_id)
   {
-    Cache_Entries_State entry_state = entry.int_id_.recycle_state ();
+    Cache_Entries_State entry_state = int_id->recycle_state ();
     bool result = (entry_state == ENTRY_CONNECTING);
 
-    if (!result && entry.int_id_.transport () != 0)
+    if (!result && int_id->transport () != 0)
       {
         // if we're not connected, that counts, too.
         // Can this happen?  Not sure <wilsond@ociweb.com>
-        result = !entry.int_id_.is_connected ();
+        result = !int_id->is_connected ();
       }
 
     if (TAO_debug_level > 8)
@@ -527,9 +553,9 @@ namespace TAO
         TAOLIB_DEBUG ((LM_DEBUG,
                     ACE_TEXT ("TAO (%P|%t) - Transport_Cache_Manager_T::")
                     ACE_TEXT ("is_entry_connecting_i[%d], %C, state is %C\n"),
-                    entry.int_id_.transport () ? entry.int_id_.transport ()->id () : 0,
+                    int_id->transport () ? int_id->transport ()->id () : 0,
                     (result ? "true" : "false"),
-                    Cache_IntId::state_name (entry_state)));
+                    Cache_IntId_Node::state_name (entry_state)));
       }
 
     return result;
@@ -541,15 +567,15 @@ namespace TAO
   Transport_Cache_Manager_T<TT, TRDT, PSTRAT>::
     cpscmp(const void* a, const void* b)
   {
-    const HASH_MAP_ENTRY** left  = (const HASH_MAP_ENTRY**)a;
-    const HASH_MAP_ENTRY** right = (const HASH_MAP_ENTRY**)b;
+    const HASH_MAP_ENTRY* left  = (const HASH_MAP_ENTRY*)a;
+    const HASH_MAP_ENTRY* right = (const HASH_MAP_ENTRY*)b;
 
-    if ((*left)->int_id_.transport ()->purging_order () <
-        (*right)->int_id_.transport ()->purging_order ())
+    if (left->item->transport ()->purging_order () <
+        right->item->transport ()->purging_order ())
       return -1;
 
-    if ((*left)->int_id_.transport ()->purging_order () >
-        (*right)->int_id_.transport ()->purging_order ())
+    if (left->item->transport ()->purging_order () >
+        right->item->transport ()->purging_order ())
       return 1;
 
     return 0;
@@ -593,11 +619,11 @@ namespace TAO
 
           for (int i = 0; count < amount && i < sorted_size; ++i)
             {
-              if (this->is_entry_purgable_i (*sorted_set[i]))
+              if (this->is_entry_purgable_i (sorted_set[i].item))
                 {
                   transport_type* transport =
-                    sorted_set[i]->int_id_.transport ();
-                  sorted_set[i]->int_id_.recycle_state (ENTRY_BUSY);
+                    sorted_set[i].item->transport ();
+                  sorted_set[i].item->recycle_state (ENTRY_BUSY);
                   transport->add_reference ();
 
                   if (TAO_debug_level > 4)
@@ -657,7 +683,8 @@ namespace TAO
         TAOLIB_DEBUG ((LM_INFO,
           ACE_TEXT ("TAO (%P|%t) - Transport_Cache_Manager_T::purge, ")
           ACE_TEXT ("Cache size after purging is [%d]\n"),
-          this->current_size ()));
+          this->cache_size_
+          ));
       }
 
 #if defined (TAO_HAS_MONITOR_POINTS) && (TAO_HAS_MONITOR_POINTS == 1)
@@ -665,7 +692,7 @@ namespace TAO
     /// which is added automatically.
     this->purge_monitor_->receive (static_cast<size_t> (0UL));
     /// And update the size monitor as well.
-    this->size_monitor_->receive (this->current_size ());
+    this->size_monitor_->receive (this->cache_size_);
 #endif /* TAO_HAS_MONITOR_POINTS==1 */
 
     return 0;
@@ -680,16 +707,16 @@ namespace TAO
     // Use insertion sort if we don't have qsort
     for(int i = 1; i < current_size; ++i)
       {
-        if (entries[i]->int_id_.transport ()->purging_order () <
-            entries[i - 1]->int_id_.transport ()->purging_order ())
+        if (entries[i].item->transport ()->purging_order () <
+            entries[i - 1].item->transport ()->purging_order ())
           {
-            HASH_MAP_ENTRY* entry = entries[i];
+            HASH_MAP_ENTRY& entry = entries[i];
 
             for(int j = i; j > 0 &&
-                  entries[j - 1]->int_id_.transport ()->purging_order () >
-                  entry->item ().transport ()->purging_order (); --j)
+                  entries[j - 1].item->transport ()->purging_order () >
+                  entry.item->transport ()->purging_order (); --j)
               {
-                HASH_MAP_ENTRY* holder = entries[j];
+                HASH_MAP_ENTRY holder = entries[j];
                 entries[j] = entries[j - 1];
                 entries[j - 1] = holder;
               }
@@ -697,7 +724,7 @@ namespace TAO
       }
 #else
     ACE_OS::qsort (entries, current_size,
-                   sizeof (HASH_MAP_ENTRY*), (ACE_COMPARE_FUNC)cpscmp);
+                   sizeof (HASH_MAP_ENTRY), (ACE_COMPARE_FUNC)cpscmp);
 #endif /* ACE_LACKS_QSORT */
   }
 
@@ -715,7 +742,7 @@ namespace TAO
     // Do we need to worry about cache purging?
     if (cache_maximum >= 0)
       {
-        current_size = static_cast<int> (this->current_size ());
+        current_size = static_cast<int> (this->cache_size_);
 
         if (TAO_debug_level > 6)
           {
@@ -727,14 +754,16 @@ namespace TAO
 
         if (current_size >= cache_maximum)
           {
-            ACE_NEW_RETURN (sorted_set, HASH_MAP_ENTRY*[current_size], 0);
+            ACE_NEW_RETURN (sorted_set, HASH_MAP_ENTRY[current_size], 0);
 
             HASH_MAP_ITER iter = this->cache_map_.begin ();
 
-            for (int i = 0; i < current_size; ++i)
+            for (int i = 0; i < current_size; ++iter)
               {
-                sorted_set[i] = &(*iter);
-                ++iter;
+                for (Cache_IntId_Node *node (iter->item ().head ()); node; node = node->next (), ++i)
+                {
+                  sorted_set[i] = HASH_MAP_ENTRY(&(*iter), node);
+                }
               }
 
             this->sort_set (sorted_set, current_size);

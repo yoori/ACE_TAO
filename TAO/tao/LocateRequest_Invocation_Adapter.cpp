@@ -156,7 +156,7 @@ namespace TAO
     // Reset the profile in the stubs
     stub->add_forward_profiles (stubobj->base_profiles (), permanent_forward);
 
-    if (stub->next_profile () == nullptr)
+    if (!stub->next_profile ())
       throw ::CORBA::TRANSIENT (
         CORBA::SystemException::_tao_minor_code (
           TAO_INVOCATION_LOCATION_FORWARD_MINOR_CODE,

@@ -119,24 +119,51 @@ TAO_Synch_Queued_Message::clone (ACE_Allocator *alloc)
   // starting from <contents_> since we dont want to clone blocks that
   // have already been sent on the wire. Waste of memory and
   // associated copying.
-  ACE_Message_Block *mb = this->current_block_->clone ();
+  ACE_Message_Block *mb = 0;
+  ACE_NEW_NORETURN (mb,
+                    ACE_Message_Block (0, // size
+                                       ACE_Message_Block::ACE_Message_Type (0), // type
+                                       0, // cont
+                                       0, // data
+                                       0, // allocator
+                                       0, // locking strategy
+                                       this->current_block_->msg_priority(), // priority
+                                       this->current_block_->msg_execution_time(), // execution time
+                                       this->current_block_->msg_deadline_time(), // absolute time to deadline
+                                       this->current_block_->data_block()->data_block_allocator (),
+                                       0));
+  if (!mb)
+    {
+      return 0;
+    }
+ 
+  int result = ACE_CDR::consolidate (mb, this->current_block_);
+  if (result == -1)
+    {
+      mb->release ();
+      return 0;
+    }
+
 
   if (alloc)
     {
-      ACE_NEW_MALLOC_RETURN (qm,
-                             static_cast<TAO_Synch_Queued_Message *> (
-                               alloc->malloc (sizeof (TAO_Synch_Queued_Message))),
-                             TAO_Synch_Queued_Message (mb,
-                                                       this->orb_core_,
-                                                       alloc,
-                                                       true),
-                             nullptr);
+      ACE_NEW_MALLOC_NORETURN (qm,
+                               static_cast<TAO_Synch_Queued_Message *> (
+                                 alloc->malloc (sizeof (TAO_Synch_Queued_Message))),
+                               TAO_Synch_Queued_Message (mb,
+                                                         this->orb_core_,
+                                                         alloc,
+                                                         true));
     }
   else
     {
-      ACE_NEW_RETURN (qm,
-                      TAO_Synch_Queued_Message (mb, this->orb_core_, nullptr, true),
-                      nullptr);
+      ACE_NEW_NORETURN (qm,
+                        TAO_Synch_Queued_Message (mb, this->orb_core_, 0, true));
+    }
+
+  if (!qm)
+    {
+      mb->release ();
     }
 
   return qm;

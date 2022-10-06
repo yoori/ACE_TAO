@@ -11,7 +11,8 @@ namespace TAO
 {
   template <typename TRANSPORT_TYPE>
   Cache_IntId_T<TRANSPORT_TYPE>::Cache_IntId_T (TRANSPORT_TYPE *transport)
-    : transport_ (transport)
+    : ACE_Intrusive_List_Node <Cache_IntId_T <TRANSPORT_TYPE> > ()
+    , transport_ (transport)
     , recycle_state_ (ENTRY_UNKNOWN)
     , is_connected_ (false)
   {
@@ -38,6 +39,7 @@ namespace TAO
   {
     if (this != &rhs)
       {
+        ACE_Intrusive_List_Node <Cache_IntId_T <TRANSPORT_TYPE> >::operator= (rhs);
         this->recycle_state_ = rhs.recycle_state_;
         this->is_connected_ = rhs.is_connected_;
         transport_type *old_transport = this->transport_;

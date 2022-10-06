@@ -1129,7 +1129,7 @@ TAO_IFR_Service_Utils::reference_to_path (CORBA::IRObject_ptr obj)
 
   PortableServer::ObjectId object_id;
   TAO::ObjectKey object_key =
-    obj->_stubobj ()->profile_in_use ()->object_key ();
+    obj->_stubobj ()->profile_in_use_ptr ()->object_key ();
   int status = TAO_Root_POA::parse_ir_object_key (object_key,
                                                   object_id);
   if (status != 0)

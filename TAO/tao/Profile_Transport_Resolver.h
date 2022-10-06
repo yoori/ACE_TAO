@@ -92,7 +92,7 @@ namespace TAO
      */
 
     /// Mutator for profile.
-    void profile (TAO_Profile *pfile);
+    void profile (TAO_Profile *pfile, bool pre_incremented = false);
 
     /// Accessor for profile.
     TAO_Profile *profile () const;

@@ -92,7 +92,7 @@ TAO_Stub::~TAO_Stub ()
   if (this->profile_in_use_ != nullptr)
     {
       // decrease reference count on profile
-      this->profile_in_use_->_decr_refcnt ();
+      this->profile_in_use_->_decr_refcount ();
       this->profile_in_use_ = nullptr;
     }
 
@@ -103,6 +103,22 @@ TAO_Stub::~TAO_Stub ()
   delete this->ior_info_;
 
   delete this->forwarded_ior_info_;
+}
+
+TAO_Profile *
+TAO_Stub::profile_in_use_pre_inc ()
+{
+  // we assume that the profile_in_use_ is being
+  // forwarded!  Grab the lock so things don't change.
+  ACE_MT (ACE_GUARD_RETURN (TAO_SYNCH_MUTEX,
+                            guard,
+                            this->profile_in_use_lock_,
+                            0));
+
+  if (this->profile_in_use_) {
+    this->profile_in_use_->_incr_refcount ();
+  }
+  return this->profile_in_use_;
 }
 
 void
@@ -127,7 +143,7 @@ TAO_Stub::add_forward_profiles (const TAO_MProfile &mprofiles,
       // paranoid, reset the bookmark, then clear the forward-stack
       this->forward_profiles_perm_ = nullptr;
 
-      this->reset_forward ();
+      this->reset_forward_i ();
     }
 
   TAO_MProfile *now_pfiles = this->forward_profiles_;
@@ -339,7 +355,7 @@ TAO_Stub::is_equivalent (CORBA::Object_ptr other_obj)
 TAO_Profile *
 TAO_Stub::set_profile_in_use_i (TAO_Profile *pfile)
 {
-  TAO_Profile *const old = this->profile_in_use_;
+  TAO_Profile *old;
 
   // Since we are actively using this profile we dont want
   // it to disappear, so increase the reference count by one!!
@@ -350,16 +366,123 @@ TAO_Stub::set_profile_in_use_i (TAO_Profile *pfile)
                         0);
     }
 
-  this->profile_in_use_ = pfile;
+  {
+    ACE_MT (ACE_GUARD_RETURN (TAO_SYNCH_MUTEX,
+                              guard,
+                              this->profile_in_use_lock_,
+                              0));
+    
+    old = this->profile_in_use_;
+    this->profile_in_use_ = pfile;
+  }
 
   if (old)
     old->_decr_refcnt ();
 
-  return this->profile_in_use_;
+  return pfile;
+}
+
+bool
+TAO_Stub::next_profile_i (void)
+{
+  TAO_Profile *pfile_next = 0;
+  bool pfile_next_dec = false;
+
+  // First handle the case that a permanent forward occured
+  if (this->forward_profiles_perm_) // the permanent forward defined
+                                    // at bottom of stack
+                                    // forward_profiles_
+    {
+      // In case of permanent forward the base_profiles are ingored.
+
+      pfile_next = this->next_forward_profile_i ();
+
+      if (pfile_next == 0)
+        {
+          // COND: this->forward_profiles_ == this->forward_profiles_perm_
+
+          // reached end of list of permanent forward profiles
+          // now, reset forward_profiles_perm_
+
+          this->forward_profiles_->rewind ();
+          this->profile_success_ = false;
+          this->set_profile_in_use_i (this->forward_profiles_->get_next());
+        }
+      else
+        this->set_profile_in_use_i (pfile_next);
+
+      // We may have been forwarded to / from a collocated situation
+      // Check for this and apply / remove optimisation if required.
+      this->orb_core_->reinitialize_object (this);
+
+      return pfile_next != 0;
+    }
+  else
+    {
+      if (this->forward_profiles_) // Now do the common operation
+        {
+          pfile_next = this->next_forward_profile_i ();
+          if (pfile_next == 0)
+          {
+            // Fall back to base profiles
+            pfile_next = this->base_profiles_.get_next ();
+          }
+
+          if(pfile_next)
+          {
+            pfile_next->_incr_refcount();
+            pfile_next_dec = true;
+          }
+
+          {
+            // V1 {
+            typedef ACE_Reverse_Lock<TAO_SYNCH_MUTEX> TAO_REVERSE_LOCK;
+            TAO_REVERSE_LOCK reverse (this->profile_lock_);
+            ACE_MT (ACE_GUARD_RETURN (TAO_REVERSE_LOCK, ace_mon, reverse, 0));
+            if (TAO_debug_level > 5)
+              {
+                TAOLIB_DEBUG ((LM_DEBUG,
+                            ACE_TEXT ("TAO (%P|%t) - Stub::next_profile_i, ")
+                            ACE_TEXT ("released profile lock to reinitialize ")
+                            ACE_TEXT ("this = 0x%x\n"),
+                            this));
+              }
+            // } V1
+            // profile_lock_ unlocked - use only thread safe methods in ORB_Core::reinitialize_object !!!
+
+            // We may have been forwarded to / from a collocated situation
+            // Check for this and apply / remove optimisation if required.
+            this->orb_core_->reinitialize_object (this);
+          }
+
+          if (TAO_debug_level > 5)
+          {
+            TAOLIB_DEBUG ((LM_DEBUG,
+                          ACE_TEXT ("TAO (%P|%t) - Stub::next_profile_i, ")
+                          ACE_TEXT ("reacquired profile lock on object ")
+                          ACE_TEXT ("this = 0x%x\n"),
+                          this));
+          }
+        }
+      else
+        pfile_next = this->base_profiles_.get_next ();
+
+      if (pfile_next == 0)
+        this->reset_base_i ();
+      else
+        this->set_profile_in_use_i (pfile_next);
+
+      if(pfile_next_dec && pfile_next)
+      {
+        pfile_next->_decr_refcount();
+      }
+
+      return pfile_next != 0;
+   }
 }
 
 void
-TAO_Stub::forward_back_one ()
+TAO_Stub::forward_back_one_i ()
 {
   TAO_MProfile *from = forward_profiles_->forward_from ();
 

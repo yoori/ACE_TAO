@@ -59,7 +59,7 @@ namespace TAO
    * table holding the state of the Transport Cache.
    */
   template <typename TRANSPORT_TYPE>
-  class Cache_IntId_T
+  class Cache_IntId_T : public ACE_Intrusive_List_Node <Cache_IntId_T <TRANSPORT_TYPE> >
   {
   public:
     typedef TRANSPORT_TYPE transport_type;
@@ -129,6 +129,16 @@ namespace TAO
   };
 
 
+  template <typename TRANSPORT_TYPE>
+  class Cache_IntId_List_T : public ACE_Intrusive_List <Cache_IntId_T <TRANSPORT_TYPE> >
+  {
+  public:
+    Cache_IntId_List_T (void);
+    Cache_IntId_List_T (const Cache_IntId_List_T &rhs);
+    ~Cache_IntId_List_T (void);
+  };
+
+
   /**
    * @class Cache_ExtId_T
    *
@@ -172,16 +182,6 @@ namespace TAO
     /// Make a deep copy of the underlying pointer
     void duplicate ();
 
-    /// Return the index value
-    CORBA::ULong index () const;
-
-    /// Set the index value. This calls should not be used by any users
-    /// but for the TAO_Transport_Cache_Manager class.
-    void index (CORBA::ULong index);
-
-    /// Increment the index value
-    void incr_index ();
-
     // = Accessors
     /// Get the underlying the property pointer
     transport_descriptor_type *property () const;
@@ -192,14 +192,6 @@ namespace TAO
 
     /// Do we need to delete transport_property?
     bool is_delete_;
-
-    /**
-     * This is a supplementary index. Would be set to zero by
-     * default. Would be altered by the Transport_Cache of TAO. Please
-     * see the documentation of TAO_Transport_Cache_Manager for
-     * details.
-     */
-    CORBA::ULong index_;
   };
 }
 

@@ -40,6 +40,8 @@ static ACE_TCHAR const TAO_PATH_SEPARATOR_STRING[] =
   ACE_TEXT (":");
 #endif
 
+#define TAO_LIB(x) ACE_DLL_PREFIX x ACE_DLL_SUFFIX "." TAO_VERSION
+
 TAO_BEGIN_VERSIONED_NAMESPACE_DECL
 namespace
 {
@@ -814,7 +816,7 @@ TAO::SSLIOP::Protocol_Factory::register_orb_initializer ()
         PortableInterceptor::ORBInitializer::_nil ();
       ACE_NEW_THROW_EX (tmp_dll,
                         PortableInterceptor::DLL_Resident_ORB_Initializer
-                        (initializer.in (), ACE_TEXT ("TAO_Security")),
+                        (initializer.in (), TAO_LIB(ACE_TEXT ("TAO_Security"))),
                         CORBA::NO_MEMORY
                         (CORBA::SystemException::_tao_minor_code
                          (TAO::VMCID, ENOMEM), CORBA::COMPLETED_NO));
@@ -832,7 +834,7 @@ TAO::SSLIOP::Protocol_Factory::register_orb_initializer ()
       tmp_dll = PortableInterceptor::ORBInitializer::_nil ();
       ACE_NEW_THROW_EX (tmp_dll,
                         PortableInterceptor::DLL_Resident_ORB_Initializer
-                        (initializer.in (), ACE_TEXT ("TAO_SSLIOP")),
+                        (initializer.in (), TAO_LIB(ACE_TEXT ("TAO_SSLIOP"))),
                         CORBA::NO_MEMORY
                         (CORBA::SystemException::_tao_minor_code
                          (TAO::VMCID, ENOMEM), CORBA::COMPLETED_NO));

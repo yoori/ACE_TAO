@@ -511,8 +511,8 @@ TAO_GOA::associate_group_with_ref (
                                 this->orb_core_);
 
   // Add a mapping from GroupId to Object key in the PortableGroup
-  const TAO::ObjectKey &key =
-    obj_ref->_stubobj ()->profile_in_use ()->object_key ();
+  TAO_Profile_var profile_in_use = obj_ref->_stubobj ()->profile_in_use_pre_inc ();
+  const TAO::ObjectKey &key = profile_in_use->object_key ();
   rd->group_map_.add_groupid_objectkey_pair (group_id._retn (), key);
 }
 

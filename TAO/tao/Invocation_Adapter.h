@@ -259,7 +259,7 @@ namespace TAO
 
   protected:
     /// The target object on which this invocation is carried out.
-    CORBA::Object_ptr target_;
+    CORBA::Object_ptr const target_;
 
     /// Array of arguments for this operation
     Argument ** const args_;

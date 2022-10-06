@@ -200,7 +200,7 @@ TAO_FT_Service_Callbacks::is_permanent_forward_condition (const CORBA::Object_pt
 
   const TAO_Stub * stub = obj->_stubobj ();
   // check for forward_profiles, branching to speed up operation on base_profiles
-  if (stub->forward_profiles ())
+  if (stub->forward_profiles_i ())
     {
       // set lock, as forward_profiles might be deleted concurrently
       ACE_MT (ACE_GUARD_RETURN (TAO_SYNCH_MUTEX,
@@ -209,8 +209,8 @@ TAO_FT_Service_Callbacks::is_permanent_forward_condition (const CORBA::Object_pt
                                 0));
 
       // even now, the forward profiles might have been deleted in the meanwhile
-      const TAO_MProfile &mprofile = stub->forward_profiles()
-          ? *(stub->forward_profiles())
+      const TAO_MProfile &mprofile = stub->forward_profiles_i()
+          ? *(stub->forward_profiles_i())
           : stub->base_profiles();
 
       if (mprofile.profile_count() == 0)

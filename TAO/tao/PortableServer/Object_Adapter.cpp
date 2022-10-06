@@ -855,10 +855,17 @@ CORBA::Long
 TAO_Object_Adapter::initialize_collocated_object (TAO_Stub *stub)
 {
   // If we have been forwarded: use the forwarded profiles
-  const TAO_MProfile &mp = stub->forward_profiles () ? *(stub->forward_profiles ())
-                                                     : stub->base_profiles ();
+  TAO_MProfile* delete_mprofile = stub->make_forward_profiles();
+
+  const TAO_MProfile &mp =  delete_mprofile ?
+    *delete_mprofile : stub->base_profiles ();
 
   TAO_ServantBase *sb = this->get_collocated_servant (mp);
+
+  if(delete_mprofile)
+  {
+    delete delete_mprofile;
+  }
 
   // Set the servant ORB.  Do not duplicate the ORB here since
   // TAO_Stub::servant_orb() duplicates it.

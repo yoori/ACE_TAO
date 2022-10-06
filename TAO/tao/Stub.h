@@ -120,7 +120,14 @@ public:
   /// Manage the base (non-forwarded) profiles.
   /// Returns a pointer to the profile_in_use object.  This object
   /// retains ownership of this profile.
-  TAO_Profile *profile_in_use ();
+  //TAO_Profile *profile_in_use ();
+ 
+  TAO_Profile *profile_in_use_pre_inc ();
+
+  /// Returns a pointer to the profile_in_use object,
+  /// but you can't use object by this pointer,
+  /// no garantees that it is live (not deleted)
+  TAO_Profile *profile_in_use_ptr ();
 
   /// Return the ObjectKey
   const TAO::ObjectKey &object_key () const;
@@ -135,14 +142,22 @@ public:
   /// Obtain a reference to the basic profile set.
   const TAO_MProfile& base_profiles () const;
 
+  /**
+   * THREAD-SAFE
+   * Copy of the forward profile list, user must free memory when done.
+   */
+  TAO_MProfile *make_forward_profiles (void);
+
   /// Obtain a reference to the basic profile set.
   TAO_MProfile& base_profiles ();
 
+  /*
   /// Obtain a pointer to the forwarded profile set
   const TAO_MProfile *forward_profiles () const;
 
   /// Obtain a pointer to the forwarded profile set
   TAO_MProfile *forward_profiles ();
+  */
 
   /// True if permanent location forward occurred, in this case the lock must be set and the
 
@@ -155,7 +170,7 @@ public:
    * profile_in_use_ is set to the first profile in the base_profiles
    * list.
    */
-  TAO_Profile *next_profile ();
+  bool next_profile (void);
 
   /**
    * THREAD SAFE
@@ -183,7 +198,7 @@ public:
 
   /// Initialize the base_profiles_ and set profile_in_use_ to
   /// reference the first profile.
-  TAO_Profile *base_profiles (const TAO_MProfile& mprofiles);
+  void base_profiles (const TAO_MProfile& mprofiles);
 
   /**
    * THREAD SAFE.
@@ -270,16 +285,27 @@ public:
   void forwarded_on_exception (bool forwarded);
   bool forwarded_on_exception () const;
 
+  /// Obtain a pointer to the forwarded profile set
+  /// THREAD UNSAFE !!!
+  const TAO_MProfile *forward_profiles_i (void) const;
+
+  /// methods for Optimized_Connection_Endpoint_Selector impl
+  /// NON-THREAD SAFE version of profile_in_use_ptr
+  TAO_Profile *profile_in_use_ptr_i ();
+
+  /// NON-THREAD SAFE version of next_profile_retry
+  CORBA::Boolean next_profile_retry_i (void);
+
+  /// NON-THREAD SAFE version of reset_profiles ();
+  void reset_profiles_i ();
+
 protected:
   /// Destructor is to be called only through _decr_refcnt() to
   /// enforce proper reference counting.
   virtual ~TAO_Stub ();
 
-  /// NON-THREAD SAFE version of reset_profiles ();
-  void reset_profiles_i ();
-
-  /// NON-THREAD SAFE version of next_profile ()
-  TAO_Profile *next_profile_i ();
+  /// NON-THREAD SAFE version of reset_profiles (void);
+  bool next_profile_i (void);
 
 private:
   /// Makes a copy of the profile and frees the existing profile_in_use.
@@ -288,18 +314,18 @@ private:
 
   /// NON-THREAD-SAFE.  Utility method which resets or initializes
   /// the base_profile list and forward flags.
-  void reset_base ();
+  void reset_base_i ();
 
   /// NON-THREAD-SAFE.  Utility method which unrolls (removes or pops)
   /// the top most forwarding profile list.
-  void forward_back_one ();
+  void forward_back_one_i ();
 
    /// NOT THREAD-SAFE.  Utility method which pops all forward profile
    /// lists and resets the forward_profiles_ pointer.
-  void reset_forward ();
+  void reset_forward_i ();
 
   /// NON-THREAD-SAFE.  utility method for next_profile.
-  TAO_Profile *next_forward_profile ();
+  TAO_Profile *next_forward_profile_i ();
 
   /// THREAD-SAFE Create the IOR info
   int get_profile_ior_info (TAO_MProfile &profile, IOP::IOR *&ior_info);
@@ -373,6 +399,14 @@ protected:
 
   /// Mutex to protect access to the forwarding profile.
   TAO_SYNCH_MUTEX profile_lock_;
+
+  /// Additional Mutex to protect access to the profile_in_use_
+  /// at modification can be locked only after profile_lock_
+  /// as result,
+  /// you can read profile_in_use_ inside profile_lock_
+  /// you can read profile_in_use_ inside profile_in_use_lock_
+  /// you can modify profile_in_use_ only inside profile_lock_ -> profile_in_use_lock_
+  TAO_SYNCH_MUTEX profile_in_use_lock_;
 
   /// Have we successfully talked to the forward profile yet?
   CORBA::Boolean profile_success_;

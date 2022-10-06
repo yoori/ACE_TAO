@@ -8,7 +8,8 @@ namespace TAO
 {
   template <typename TRANSPORT_TYPE> ACE_INLINE
   Cache_IntId_T<TRANSPORT_TYPE>::Cache_IntId_T ()
-    : transport_ (0),
+    : ACE_Intrusive_List_Node <Cache_IntId_T <TRANSPORT_TYPE> > (),
+      transport_ (0),
       recycle_state_ (ENTRY_UNKNOWN),
       is_connected_ (false)
   {
@@ -16,7 +17,8 @@ namespace TAO
 
   template <typename TRANSPORT_TYPE> ACE_INLINE
   Cache_IntId_T<TRANSPORT_TYPE>::Cache_IntId_T (const Cache_IntId_T &rhs)
-    : transport_ (0),
+    : ACE_Intrusive_List_Node <Cache_IntId_T <TRANSPORT_TYPE> > (rhs),
+      transport_ (0),
       recycle_state_ (ENTRY_UNKNOWN),
       is_connected_ (false)
   {
@@ -96,12 +98,34 @@ namespace TAO
 #undef TAO_CACHE_INTID_ENTRY
   }
 
+  template <typename TRANSPORT_TYPE> ACE_INLINE
+  Cache_IntId_List_T<TRANSPORT_TYPE>::Cache_IntId_List_T (void)
+    : ACE_Intrusive_List <Cache_IntId_T <TRANSPORT_TYPE> > ()
+  {
+  }
+
+  template <typename TRANSPORT_TYPE> ACE_INLINE
+  Cache_IntId_List_T<TRANSPORT_TYPE>::Cache_IntId_List_T (const Cache_IntId_List_T &rhs)
+    : ACE_Intrusive_List <Cache_IntId_T <TRANSPORT_TYPE> > ()
+  {
+    ACE_ASSERT (rhs.is_empty ());
+  }
+
+  template <typename TRANSPORT_TYPE> ACE_INLINE
+  Cache_IntId_List_T<TRANSPORT_TYPE>::~Cache_IntId_List_T (void)
+  {
+    while (!this->is_empty ())
+    {
+      delete this->pop_front ();
+    }
+  }
+
+
   /*******************************************************/
   template <typename TRANSPORT_DESCRIPTOR_TYPE> ACE_INLINE
   Cache_ExtId_T<TRANSPORT_DESCRIPTOR_TYPE>::Cache_ExtId_T ()
     : transport_property_ (0),
-      is_delete_ (false),
-      index_ (0)
+      is_delete_ (false)
   {
   }
 
@@ -109,10 +133,8 @@ namespace TAO
   Cache_ExtId_T<TRANSPORT_DESCRIPTOR_TYPE>::Cache_ExtId_T (
     typename Cache_ExtId_T<TRANSPORT_DESCRIPTOR_TYPE>::transport_descriptor_type *prop)
     : transport_property_ (prop),
-      is_delete_ (false),
-      index_ (0)
+      is_delete_ (false)
   {
-
   }
 
   template <typename TRANSPORT_DESCRIPTOR_TYPE> ACE_INLINE
@@ -135,12 +157,10 @@ namespace TAO
         if (this->transport_property_ == 0)
           {
             this->is_delete_ = false;
-            this->index_ = 0;
           }
         else
           {
             this->is_delete_ = true;
-            this->index_ = rhs.index_;
           }
       }
     return *this;
@@ -149,8 +169,7 @@ namespace TAO
   template <typename TRANSPORT_DESCRIPTOR_TYPE> ACE_INLINE
   Cache_ExtId_T<TRANSPORT_DESCRIPTOR_TYPE>::Cache_ExtId_T (const Cache_ExtId_T &rhs)
     : transport_property_ (0),
-      is_delete_ (false),
-      index_ (0)
+      is_delete_ (false)
   {
     *this = rhs;
   }
@@ -158,15 +177,13 @@ namespace TAO
   template <typename TRANSPORT_DESCRIPTOR_TYPE> ACE_INLINE bool
   Cache_ExtId_T<TRANSPORT_DESCRIPTOR_TYPE>::operator== (const Cache_ExtId_T &rhs) const
   {
-    return (this->transport_property_->is_equivalent (rhs.transport_property_) &&
-            this->index_ == rhs.index_);
+    return (this->transport_property_->is_equivalent (rhs.transport_property_));
   }
 
   template <typename TRANSPORT_DESCRIPTOR_TYPE> ACE_INLINE bool
   Cache_ExtId_T<TRANSPORT_DESCRIPTOR_TYPE>::operator!= (const Cache_ExtId_T &rhs) const
   {
-    if (this->transport_property_->is_equivalent (rhs.transport_property_) &&
-        this->index_ == rhs.index_)
+    if (this->transport_property_->is_equivalent (rhs.transport_property_))
       return false;
 
     return true;
@@ -175,7 +192,7 @@ namespace TAO
   template <typename TRANSPORT_DESCRIPTOR_TYPE> ACE_INLINE u_long
   Cache_ExtId_T<TRANSPORT_DESCRIPTOR_TYPE>::hash () const
   {
-    return (this->transport_property_->hash () + this->index_);
+    return (this->transport_property_->hash ());
   }
 
   template <typename TRANSPORT_DESCRIPTOR_TYPE> ACE_INLINE void
@@ -195,26 +212,6 @@ namespace TAO
 
     this->is_delete_ = true;
     this->transport_property_ = prop;
-  }
-
-
-  template <typename TRANSPORT_DESCRIPTOR_TYPE> ACE_INLINE CORBA::ULong
-  Cache_ExtId_T<TRANSPORT_DESCRIPTOR_TYPE>::index () const
-  {
-    return this->index_;
-  }
-
-
-  template <typename TRANSPORT_DESCRIPTOR_TYPE> ACE_INLINE void
-  Cache_ExtId_T<TRANSPORT_DESCRIPTOR_TYPE>::index (CORBA::ULong index)
-  {
-    this->index_ = index;
-  }
-
-  template <typename TRANSPORT_DESCRIPTOR_TYPE> ACE_INLINE void
-  Cache_ExtId_T<TRANSPORT_DESCRIPTOR_TYPE>::incr_index ()
-  {
-    ++this->index_;
   }
 
   template <typename TRANSPORT_DESCRIPTOR_TYPE> ACE_INLINE

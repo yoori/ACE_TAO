@@ -80,33 +80,45 @@ TAO_Optimized_Connection_Endpoint_Selector::select_endpoint
    ACE_Time_Value *max_wait_time)
 {
   TAO_Stub *stub = r->stub();
-  TAO_Profile *p = stub->profile_in_use();
 
-  // first, look for the endpoints for the current profile in use.
-  // if that is available then go for it.
+  {
+    TAO_Profile_var p = stub->profile_in_use_pre_inc();
 
-  if (this->check_profile (p, r) != 0)
-    return;
+    // first, look for the endpoints for the current profile in use.
+    // if that is available then go for it.
+
+    if (this->check_profile (p, r) != 0)
+      return;
+  }
 
   // next, look for any other profiles. If the stub has any forward profiles,
   // use those, otherwise look at the base profiles. This separation is
   // necessary to avoid re-using a corbaloc or other previously forwarded
   // profile.
 
-  const TAO_MProfile *profiles = stub->forward_profiles();
-  if (profiles != 0)
+  if (stub->forward_profiles_i() != 0)
     {
-      for (CORBA::ULong count = 0; count <  profiles->profile_count(); count++)
+      // way like in TAO_FT_Invocation_Endpoint_Selector,
+      // lock profile_lock for fetch forward_profiles
+      ACE_MT (ACE_GUARD (TAO_SYNCH_MUTEX,
+                         guard,
+                         const_cast <TAO_SYNCH_MUTEX &> (stub->profile_lock ())
+                         ));
+
+      const TAO_MProfile *profiles = stub->forward_profiles_i();
+
+      for (CORBA::ULong count = 0; count < profiles->profile_count(); count++)
         {
-          p = const_cast<TAO_Profile *>(profiles->get_profile(count));
+          TAO_Profile* p = const_cast<TAO_Profile *>(profiles->get_profile(count));
           if (this->check_profile (p, r) != 0)
             {
-              if (stub->profile_in_use() != p)
+              if (stub->profile_in_use_ptr_i() != p)
                 {
                   // thread-safe way to coerse stub to this profile.
-                  stub->reset_profiles();
-                  while (stub->profile_in_use() != p)
-                    if (stub->next_profile_retry() == 0)
+                  stub->reset_profiles_i();
+
+                  while (stub->profile_in_use_ptr_i() != p)
+                    if (stub->next_profile_retry_i() == 0)
                       break;
                 }
               return;
@@ -117,7 +129,7 @@ TAO_Optimized_Connection_Endpoint_Selector::select_endpoint
     {
       do
         {
-          p = stub->profile_in_use();
+          TAO_Profile_var p = stub->profile_in_use_pre_inc();
           if (this->check_profile(p, r) != 0)
             return;
         }
@@ -131,7 +143,7 @@ TAO_Optimized_Connection_Endpoint_Selector::select_endpoint
 
   do
     {
-      r->profile (r->stub ()->profile_in_use ());
+      r->profile (stub->profile_in_use_pre_inc(), true);
 
       // Check whether we need to do a blocked wait or we have a
       // non-blocked wait and we support that.  If this is not the

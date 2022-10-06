@@ -5,14 +5,13 @@
 TAO_BEGIN_VERSIONED_NAMESPACE_DECL
 
 ACE_INLINE void
-TAO_Stub::reset_base ()
+TAO_Stub::reset_base_i ()
 {
   this->base_profiles_.rewind ();
   this->profile_success_ = false;
 
   this->set_profile_in_use_i (base_profiles_.get_next ());
 }
-
 
 ACE_INLINE const TAO_SYNCH_MUTEX&
 TAO_Stub::profile_lock () const
@@ -21,20 +20,20 @@ TAO_Stub::profile_lock () const
 }
 
 ACE_INLINE void
-TAO_Stub::reset_forward ()
+TAO_Stub::reset_forward_i ()
 {
   while (this->forward_profiles_ != 0
          && this->forward_profiles_ != this->forward_profiles_perm_) // Disturbingly the permanent
                                                                      // forwarded profile lives at the  bottom
                                                                      // of this stack if it exists. Avoid deleting it.
-    this->forward_back_one ();
+    this->forward_back_one_i ();
 }
 
 ACE_INLINE void
 TAO_Stub::reset_profiles_i ()
 {
-  this->reset_forward ();
-  this->reset_base ();
+  this->reset_forward_i ();
+  this->reset_base_i ();
 
   if (this->forward_profiles_perm_)
     {
@@ -54,6 +53,7 @@ TAO_Stub::reset_profiles ()
   ACE_MT (ACE_GUARD (TAO_SYNCH_MUTEX,
                      guard,
                      this->profile_lock_));
+
   if (TAO_debug_level > 5)
     {
       TAOLIB_DEBUG ((LM_DEBUG,
@@ -66,9 +66,20 @@ TAO_Stub::reset_profiles ()
 }
 
 ACE_INLINE TAO_Profile *
-TAO_Stub::profile_in_use ()
+TAO_Stub::profile_in_use_ptr_i ()
 {
   return this->profile_in_use_;
+}
+
+ACE_INLINE TAO_Profile *
+TAO_Stub::profile_in_use_ptr ()
+{
+  ACE_MT (ACE_GUARD_RETURN (TAO_SYNCH_MUTEX,
+                            guard,
+                            this->profile_in_use_lock_,
+                            0));
+
+  return this->profile_in_use_ptr_i();
 }
 
 ACE_INLINE TAO_MProfile *
@@ -83,8 +94,28 @@ TAO_Stub::make_profiles ()
   return mp;
 }
 
+ACE_INLINE TAO_MProfile *
+TAO_Stub::make_forward_profiles (void)
+{
+  ACE_MT (ACE_GUARD_RETURN (TAO_SYNCH_MUTEX,
+                            guard,
+                            this->profile_lock_,
+                            0));
+
+  TAO_MProfile *mp = 0;
+
+  if(forward_profiles_)
+  {
+    ACE_NEW_RETURN (mp,
+                    TAO_MProfile (*forward_profiles_),
+                    0);
+  }
+
+  return mp;
+}
+
 ACE_INLINE TAO_Profile *
-TAO_Stub::next_forward_profile ()
+TAO_Stub::next_forward_profile_i ()
 {
   TAO_Profile *pfile_next = 0;
 
@@ -93,94 +124,12 @@ TAO_Stub::next_forward_profile ()
          && this->forward_profiles_ != this->forward_profiles_perm_)  // do not remove permanent forward from bottom of stack
     // that was the last profile.  Now we clean up our forward profiles.
     // since we own the forward MProfiles, we must delete them when done.
-    this->forward_back_one ();
+    this->forward_back_one_i ();
 
   return pfile_next;
 }
 
-ACE_INLINE TAO_Profile *
-TAO_Stub::next_profile_i ()
-{
-  TAO_Profile *pfile_next = 0;
-
-  // First handle the case that a permanent forward occurred
-  if (this->forward_profiles_perm_) // the permanent forward defined
-                                    // at bottom of stack
-                                    // forward_profiles_
-    {
-      // In case of permanent forward the base_profiles are ingored.
-
-      pfile_next = this->next_forward_profile ();
-
-      if (pfile_next == 0)
-        {
-          // COND: this->forward_profiles_ == this->forward_profiles_perm_
-
-          // reached end of list of permanent forward profiles
-          // now, reset forward_profiles_perm_
-
-          this->forward_profiles_->rewind ();
-          this->profile_success_ = false;
-          this->set_profile_in_use_i (this->forward_profiles_->get_next());
-        }
-      else
-        this->set_profile_in_use_i (pfile_next);
-
-      // We may have been forwarded to / from a collocated situation
-      // Check for this and apply / remove optimisation if required.
-      this->orb_core_->reinitialize_object (this);
-
-      return pfile_next;
-    }
-  else
-    {
-      if (this->forward_profiles_) // Now do the common operation
-        {
-          pfile_next = this->next_forward_profile ();
-          if (pfile_next == 0)
-            {
-              // Fall back to base profiles
-              pfile_next = this->base_profiles_.get_next ();
-            }
-
-          {
-            typedef ACE_Reverse_Lock<TAO_SYNCH_MUTEX> TAO_REVERSE_LOCK;
-            TAO_REVERSE_LOCK reverse (this->profile_lock_);
-            ACE_MT (ACE_GUARD_RETURN (TAO_REVERSE_LOCK, ace_mon, reverse, 0));
-            if (TAO_debug_level > 5)
-              {
-                TAOLIB_DEBUG ((LM_DEBUG,
-                            ACE_TEXT ("TAO (%P|%t) - Stub::next_profile_i, ")
-                            ACE_TEXT ("released profile lock to reinitialize ")
-                            ACE_TEXT ("this = 0x%x\n"),
-                            this));
-              }
-            // We may have been forwarded to / from a collocated situation
-            // Check for this and apply / remove optimisation if required.
-            this->orb_core_->reinitialize_object (this);
-          }
-          if (TAO_debug_level > 5)
-            {
-              TAOLIB_DEBUG ((LM_DEBUG,
-                          ACE_TEXT ("TAO (%P|%t) - Stub::next_profile_i, ")
-                          ACE_TEXT ("reacquired profile lock on object ")
-                          ACE_TEXT ("this = 0x%x\n"),
-                          this));
-              }
-        }
-      else
-        pfile_next = this->base_profiles_.get_next ();
-
-      if (pfile_next == 0)
-        this->reset_base ();
-      else
-        this->set_profile_in_use_i (pfile_next);
-
-      return pfile_next;
-   }
-}
-
-ACE_INLINE TAO_Profile *
+ACE_INLINE bool
 TAO_Stub::next_profile ()
 {
   ACE_MT (ACE_GUARD_RETURN (TAO_SYNCH_MUTEX,
@@ -192,12 +141,17 @@ TAO_Stub::next_profile ()
       TAOLIB_DEBUG ((LM_DEBUG,
                   ACE_TEXT ("TAO (%P|%t) - Stub::next_profile, acquired profile lock this = 0x%x\n"), this));
     }
+
   return this->next_profile_i ();
 }
 
 ACE_INLINE CORBA::Boolean
 TAO_Stub::valid_forward_profile ()
 {
+  ACE_MT (ACE_GUARD_RETURN (TAO_SYNCH_MUTEX,
+                            guard,
+                            this->profile_lock_,
+                            false));
   return (this->profile_success_ && this->forward_profiles_);
 }
 
@@ -213,13 +167,12 @@ TAO_Stub::valid_profile () const
   return this->profile_success_;
 }
 
-ACE_INLINE TAO_Profile *
+ACE_INLINE void
 TAO_Stub::base_profiles (const TAO_MProfile &mprofiles)
 {
-  ACE_MT (ACE_GUARD_RETURN (TAO_SYNCH_MUTEX,
-                            guard,
-                            this->profile_lock_,
-                            0));
+  ACE_MT (ACE_GUARD (TAO_SYNCH_MUTEX,
+                     guard,
+                     this->profile_lock_));
   if (TAO_debug_level > 5)
     {
       TAOLIB_DEBUG ((LM_DEBUG,
@@ -232,15 +185,13 @@ TAO_Stub::base_profiles (const TAO_MProfile &mprofiles)
   // @note This reset forward could effect the collocation status
   // but as this method is only used from the Stub ctr, when the status
   // is already correctly set, we don't reinitialise here. sm.
-  this->reset_forward ();
+  this->reset_forward_i ();
   this->base_profiles_.set (mprofiles);
-  this->reset_base ();
-  return this->profile_in_use_;
-
+  this->reset_base_i ();
 }
 
 ACE_INLINE CORBA::Boolean
-TAO_Stub::next_profile_retry ()
+TAO_Stub::next_profile_retry_i ()
 {
   ACE_MT (ACE_GUARD_RETURN (TAO_SYNCH_MUTEX,
                             guard,
@@ -273,6 +224,17 @@ TAO_Stub::next_profile_retry ()
   return false;
 }
 
+ACE_INLINE CORBA::Boolean
+TAO_Stub::next_profile_retry (void)
+{
+  ACE_MT (ACE_GUARD_RETURN (TAO_SYNCH_MUTEX,
+                            guard,
+                            this->profile_lock_,
+                            0));
+
+  return this->next_profile_retry_i();
+}
+
 ACE_INLINE const TAO_MProfile&
 TAO_Stub::base_profiles () const
 {
@@ -286,16 +248,18 @@ TAO_Stub::base_profiles ()
 }
 
 ACE_INLINE const TAO_MProfile *
-TAO_Stub::forward_profiles () const
+TAO_Stub::forward_profiles_i () const
 {
   return this->forward_profiles_;
 }
 
+/*
 ACE_INLINE TAO_MProfile *
 TAO_Stub::forward_profiles ()
 {
   return this->forward_profiles_;
 }
+*/
 
 ACE_INLINE CORBA::Boolean
 TAO_Stub::is_collocated () const

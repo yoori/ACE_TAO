@@ -1,6 +1,17 @@
 // -*- C++ -*-
 TAO_BEGIN_VERSIONED_NAMESPACE_DECL
 
+ACE_INLINE TAO_Profile*
+TAO_Profile::_duplicate (TAO_Profile* obj)
+{
+  if (obj)
+  {
+    obj->_incr_refcount ();
+  }
+
+  return obj;
+}
+
 ACE_INLINE CORBA::ULong
 TAO_Profile::tag () const
 {
@@ -62,13 +73,19 @@ TAO_Profile::object_key () const
 }
 
 ACE_INLINE unsigned long
-TAO_Profile::_incr_refcnt ()
+TAO_Profile::_incr_refcount (void)
 {
   return ++this->refcount_;
 }
 
 ACE_INLINE unsigned long
-TAO_Profile::_decr_refcnt ()
+TAO_Profile::_incr_refcnt ()
+{
+  return this->_incr_refcount ();
+}
+
+ACE_INLINE unsigned long
+TAO_Profile::_decr_refcount ()
 {
   unsigned long count = --this->refcount_;
   if (count == 0)
@@ -80,6 +97,10 @@ TAO_Profile::_decr_refcnt ()
   return count;
 }
 
-
+ACE_INLINE unsigned long
+TAO_Profile::_decr_refcnt (void)
+{
+  return this->_decr_refcount ();
+}
 
 TAO_END_VERSIONED_NAMESPACE_DECL

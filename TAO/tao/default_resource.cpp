@@ -136,6 +136,7 @@ TAO_Default_Resource_Factory::TAO_Default_Resource_Factory ()
   , wchar_codeset_parameters_ ()
   , resource_usage_strategy_ (TAO_Resource_Factory::TAO_EAGER)
   , drop_replies_ (true)
+  , custom_reactor_impl_factory_ (0)
 {
 #if TAO_USE_LAZY_RESOURCE_USAGE_STRATEGY == 1
   this->resource_usage_strategy_ =
@@ -484,6 +485,11 @@ TAO_Default_Resource_Factory::init (int argc, ACE_TCHAR *argv[])
                     ACE_TEXT ("Zero copy writes unsupported on this platform\n")));
 #endif  /* TAO_HAS_SENDFILE==1 */
       }
+    else if (0 == ACE_OS::strcasecmp (argv[curarg],
+                                      ACE_TEXT("-ORBCustomReactorImplFactory")))
+      {
+        this->custom_reactor_impl_factory_ = true;
+      }
     else if (ACE_OS::strncmp (argv[curarg],
                               ACE_TEXT ("-ORB"),
                               4) == 0)
@@ -757,14 +763,25 @@ TAO_Default_Resource_Factory::allocate_reactor_impl () const
   // get a timer queue (or not) from a possibly configured
   // time policy
   TAO_RSF_Timer_Queue_Ptr tmq (*this, this->create_timer_queue ());
-  ACE_NEW_RETURN (impl,
-                  ACE_TP_Reactor (ACE::max_handles (),
-                                  1,
-                                  (ACE_Sig_Handler*)nullptr,
-                                  tmq.get (),
-                                  this->reactor_mask_signals_,
-                                  ACE_Select_Reactor_Token::LIFO),
-                  nullptr);
+
+  if (this->custom_reactor_impl_factory_ && this->custom_reactor_impl_factory)
+  {
+    impl = this->custom_reactor_impl_factory (tmq.get ());
+  }
+  else
+  {
+    ACE_NEW_RETURN (
+      impl,
+      ACE_TP_Reactor (
+        ACE::max_handles (),
+        1,
+        (ACE_Sig_Handler*)nullptr,
+        tmq.get (),
+        this->reactor_mask_signals_,
+        ACE_Select_Reactor_Token::LIFO),
+      nullptr);
+  }
+
   // safe to release timer queue
   tmq.release ();
   return impl;
@@ -1218,6 +1235,7 @@ TAO_Default_Resource_Factory::drop_replies_during_shutdown () const
   return this->drop_replies_;
 }
 
+ACE_Reactor_Impl* (*TAO_Default_Resource_Factory::custom_reactor_impl_factory) (ACE_Timer_Queue*);
 // ****************************************************************
 
 ACE_STATIC_SVC_DEFINE (TAO_Default_Resource_Factory,

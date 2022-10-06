@@ -314,6 +314,12 @@ private:
   /// Flag to indicate whether replies should be dropped during ORB
   /// shutdown.
   bool drop_replies_;
+
+  bool custom_reactor_impl_factory_;
+
+public:
+
+  static ACE_Reactor_Impl* (*custom_reactor_impl_factory) (ACE_Timer_Queue*);
 };
 
 ACE_STATIC_SVC_DECLARE_EXPORT (TAO, TAO_Default_Resource_Factory)

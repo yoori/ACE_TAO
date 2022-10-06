@@ -141,7 +141,7 @@ namespace
         return;
       }
 
-    TAO_Profile* profile = stub->profile_in_use ();
+    TAO_Profile_var profile = stub->profile_in_use_pre_inc ();
     if (!profile)
       {
         ACE_DEBUG ((LM_DEBUG, " {Invalid Profile}\n"));

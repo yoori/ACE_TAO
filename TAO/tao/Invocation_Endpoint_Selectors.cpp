@@ -26,7 +26,7 @@ TAO_Default_Endpoint_Selector::select_endpoint (TAO::Profile_Transport_Resolver 
 {
   do
     {
-      r->profile (r->stub ()->profile_in_use ());
+      r->profile (r->stub ()->profile_in_use_pre_inc (), true);
 
       // Check whether we need to do a blocked wait or we have a
       // non-blocked wait and we support that.  If this is not the

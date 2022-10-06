@@ -62,6 +62,15 @@ ACE_SSL_SOCK_Connector::ssl_connect (ACE_SSL_SOCK_Stream &new_stream,
             return -1;
     }
 
+  // Force Keep-Alive before SSL_connect
+  {
+    int keep_alive = 1;
+    if (new_stream.peer ().
+      set_option (SOL_SOCKET, SO_KEEPALIVE, (void *) &keep_alive,
+        sizeof (keep_alive)) == -1 && errno != ENOTSUP)
+      return -1;
+  }
+
   ACE_Time_Value t;
   if (timeout != 0)
     t = *timeout;   // Need a non-const copy.

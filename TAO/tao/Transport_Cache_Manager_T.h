@@ -73,7 +73,8 @@ namespace TAO
     };
 
     typedef Cache_ExtId_T <transport_descriptor_type> Cache_ExtId;
-    typedef Cache_IntId_T <transport_type> Cache_IntId;
+    typedef Cache_IntId_T <transport_type> Cache_IntId_Node;
+    typedef Cache_IntId_List_T <transport_type> Cache_IntId;
 
     // Some useful typedef's
     typedef ACE_Hash_Map_Manager_Ex <Cache_ExtId,
@@ -87,7 +88,19 @@ namespace TAO
 
     typedef ACE_Hash_Map_Entry <Cache_ExtId,
                                 Cache_IntId>
-    HASH_MAP_ENTRY;
+
+    HASH_MAP_ELEM;
+
+    struct HASH_MAP_ENTRY
+    {
+      HASH_MAP_ENTRY (void);
+      HASH_MAP_ENTRY (HASH_MAP_ELEM *elem, Cache_IntId_Node *item);
+
+      operator bool (void) const;
+
+      HASH_MAP_ELEM *elem;
+      Cache_IntId_Node *item;
+    };
 
     typedef TAO_Condition<TAO_SYNCH_MUTEX> CONDITION;
 
@@ -125,21 +138,21 @@ namespace TAO
     int purge ();
 
     /// Purge the entry from the Cache Map
-    int purge_entry (HASH_MAP_ENTRY *& entry);
+    int purge_entry (HASH_MAP_ENTRY & entry);
 
     /// Mark the entry as connected.
-    void mark_connected (HASH_MAP_ENTRY *& entry, bool state);
+    void mark_connected (HASH_MAP_ENTRY & entry, bool state);
 
     /// Make the entry idle and ready for use.
-    int make_idle (HASH_MAP_ENTRY *&entry);
+    int make_idle (HASH_MAP_ENTRY &entry);
 
     /// Modify the state setting on the provided entry.
-    void set_entry_state (HASH_MAP_ENTRY *&entry,
+    void set_entry_state (HASH_MAP_ENTRY &entry,
                           TAO::Cache_Entries_State state);
 
     /// Mark the entry as touched. This call updates the purging
     /// strategy policy information.
-    int update_entry (HASH_MAP_ENTRY *&entry);
+    int update_entry (HASH_MAP_ENTRY &entry);
 
     /// Close the underlying hash map manager and return any handlers
     /// still registered
@@ -157,15 +170,6 @@ namespace TAO
      */
     bool blockable_client_transports (Connection_Handler_Set &handlers);
 
-    /// Return the current size of the cache.
-    size_t current_size () const;
-
-    /// Return the total size of the cache.
-    size_t total_size () const;
-
-    /// Return the underlying cache map
-    HASH_MAP &map ();
-
   private:
     /// Lookup entry<key,value> in the cache. Grabs the lock and calls the
     /// implementation function find_i.
@@ -180,7 +184,7 @@ namespace TAO
      * bind succeeds, it adds the Hash_Map_Entry in to the
      * Transport for its reference.
      */
-    int bind_i (Cache_ExtId &ext_id, Cache_IntId &int_id);
+    int bind_i (Cache_ExtId &ext_id, Cache_IntId_Node &int_id);
 
     /**
      * Non-locking version and actual implementation of find ()
@@ -194,36 +198,36 @@ namespace TAO
       size_t & busy_count);
 
     /// Non-locking version and actual implementation of make_idle ().
-    int make_idle_i (HASH_MAP_ENTRY *entry);
+    int make_idle_i (HASH_MAP_ENTRY &entry);
 
     /// Non-locking version and actual implementation of close ()
     int close_i (Connection_Handler_Set &handlers);
 
     /// Purge the entry from the Cache Map
-    int purge_entry_i (HASH_MAP_ENTRY *entry);
+    int purge_entry_i (HASH_MAP_ENTRY &entry);
 
   private:
     /**
      * Tries to find if the @c int_id_ in @a entry is available for use.
      */
-    bool is_entry_available_i (const HASH_MAP_ENTRY &entry);
+    bool is_entry_available_i (const Cache_IntId_Node *int_id);
 
     /**
      * Tries to find if the @c int_id_ in @a entry is connect pending
      */
-    bool is_entry_connecting_i (const HASH_MAP_ENTRY &entry);
+    bool is_entry_connecting_i (const Cache_IntId_Node *int_id);
 
     /**
      * Tries to find if the @c int_id_ in @a entry is purgable
      */
-    bool is_entry_purgable_i (HASH_MAP_ENTRY &entry);
+    bool is_entry_purgable_i (Cache_IntId_Node *int_id);
 
 #if !defined(ACE_LACKS_QSORT)
     /// Used by qsort
     static int cpscmp(const void* a, const void* b);
 #endif
 
-    typedef HASH_MAP_ENTRY** DESCRIPTOR_SET;
+    typedef HASH_MAP_ENTRY* DESCRIPTOR_SET;
 
     /// Sort the list of entries
     void sort_set (DESCRIPTOR_SET& entries, int size);
@@ -244,6 +248,9 @@ namespace TAO
 
     /// The hash map that has the connections
     HASH_MAP cache_map_;
+
+    /// Total number of connections in the hash map
+    size_t cache_size_;
 
     TAO_SYNCH_MUTEX cache_map_mutex_;
 

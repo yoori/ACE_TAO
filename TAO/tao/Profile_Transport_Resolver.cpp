@@ -48,7 +48,7 @@ namespace TAO
   }
 
   void
-  Profile_Transport_Resolver::profile (TAO_Profile *p)
+  Profile_Transport_Resolver::profile (TAO_Profile *p, bool pre_incremented)
   {
     // Dont do anything if the incoming profile is null
     if (p)
@@ -59,7 +59,10 @@ namespace TAO
         // them when you are done.
         TAO_Profile *tmp = this->profile_;
 
-        (void) p->_incr_refcnt ();
+        if (!pre_incremented) {
+          if (p->_incr_refcnt () == 1) {
+          }
+        }
         this->profile_ = p;
 
         if (tmp)

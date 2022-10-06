@@ -977,7 +977,7 @@ TAO_IMR_Op_IOR::run ()
     {
       if (CORBA::is_nil (this->imr_)
         || !this->imr_->_stubobj ()
-        || !this->imr_->_stubobj ()->profile_in_use ())
+        || !this->imr_->_stubobj ()->profile_in_use_ptr ())
       {
         ORBSVCS_ERROR_RETURN ((
           LM_ERROR,
@@ -987,7 +987,7 @@ TAO_IMR_Op_IOR::run ()
 
       CORBA::String_var imr_str =
         this->imr_->_stubobj ()->
-        profile_in_use ()->to_string ();
+        profile_in_use_ptr ()->to_string ();
 
       // Search for "corbaloc:" alone, without the protocol.  This code
       // should be protocol neutral.
@@ -1002,7 +1002,7 @@ TAO_IMR_Op_IOR::run ()
       {
         pos = ACE_OS::strchr (pos + sizeof (corbaloc), ':');
         pos = ACE_OS::strchr (pos + 1,
-          this->imr_->_stubobj ()->profile_in_use ()->object_key_delimiter ());
+          this->imr_->_stubobj ()->profile_in_use_ptr ()->object_key_delimiter ());
 
         if (pos)
         {

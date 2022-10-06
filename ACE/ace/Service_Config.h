@@ -75,7 +75,11 @@ class ACE_DLL;
   ACE_TEXT ("dynamic ") \
   ACE_TEXT (ident) \
   ACE_TEXT (" Service_Object * ") \
+  ACE_DLL_PREFIX \
   ACE_TEXT (libpathname) \
+  ACE_DLL_SUFFIX \
+  ACE_TEXT (".") \
+  ACE_TEXT (version) \
   ACE_TEXT (":") \
   ACE_TEXT (objectclass) \
   ACE_TEXT ("() \"") \

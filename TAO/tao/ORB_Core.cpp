@@ -2137,14 +2137,24 @@ TAO_ORB_Core::initialize_object (TAO_Stub *stub, CORBA::Object_ptr)
 CORBA::Long
 TAO_ORB_Core::reinitialize_object (TAO_Stub *stub)
 {
-  return initialize_object_i (stub, stub->forward_profiles ()
-                                    ? *(stub->forward_profiles ())
-                                    : stub->base_profiles ());
+  TAO_MProfile* forward_profiles = stub->make_forward_profiles(); // V1
+  //const TAO_MProfile* forward_profiles = stub->forward_profiles_i(); // V2
+
+  if(forward_profiles)
+  {
+    CORBA::Long res = initialize_object_i (stub, *forward_profiles);
+    delete forward_profiles; // V1
+    // V2
+    return res;
+  }
+  else
+  {
+    return initialize_object_i (stub, stub->base_profiles ());
+  }
 }
 
 CORBA::Long
 TAO_ORB_Core::initialize_object_i (TAO_Stub *stub, const TAO_MProfile &mprofile)
-
 {
   CORBA::Long retval = 0;
   TAO_ORB_Core_Auto_Ptr collocated_orb_core;

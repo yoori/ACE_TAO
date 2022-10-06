@@ -24,9 +24,11 @@ namespace TAO
         TAO::Portable_Server::Servant_Upcall servant_upcall (
           stub->servant_orb_var ()->orb_core ());
 
+        TAO_Profile_var profile_in_use = stub->profile_in_use_pre_inc ();
+
         CORBA::Object_var forward_to;
         servant_upcall.prepare_for_upcall (
-            stub->profile_in_use ()->object_key (),
+            profile_in_use->object_key (),
             "_is_a",
             forward_to.out ());
 
@@ -62,9 +64,11 @@ namespace TAO
             TAO::Portable_Server::Servant_Upcall servant_upcall (
                 stub->servant_orb_var ()->orb_core ());
 
+            TAO_Profile_var profile_in_use = stub->profile_in_use_pre_inc ();
+
             CORBA::Object_var forward_to;
             servant_upcall.prepare_for_upcall (
-                stub->profile_in_use ()->object_key (),
+                profile_in_use->object_key (),
                 "_repository_id",
                 forward_to.out ());
 
@@ -138,9 +142,11 @@ namespace TAO
             TAO::Portable_Server::Servant_Upcall servant_upcall (
                 stub->servant_orb_var ()->orb_core ());
 
+            TAO_Profile_var profile_in_use = stub->profile_in_use_pre_inc ();
+
             CORBA::Object_var forward_to;
             servant_upcall.prepare_for_upcall (
-                stub->profile_in_use ()->object_key (),
+                profile_in_use->object_key (),
                 "_component",
                 forward_to.out ());
 
