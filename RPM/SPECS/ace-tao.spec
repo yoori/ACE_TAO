@@ -49,7 +49,7 @@ This package contains the components needed for developing programs
 using ACE and TAO.
 
 %prep
-%setup -q -n ace-tao-%version/ace-tao-ciao/ACE_wrappers
+%setup -q -n ace-tao-%{_version}-%{_release}
 
 %build
 export ACE_TAO_MPC_ROOT=$(pwd)
