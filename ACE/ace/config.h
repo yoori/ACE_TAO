@@ -1,0 +1,10 @@
+//#define ACE_LACKS_SYS_TIME_H 
+//#define ACE_LACKS_TIME_H
+//#define ACE_HAS_POSIX_TIME
+#define ACE_LACKS_CLOCKID_T
+#define HAVE_STRUCT_TIMESPEC
+#define ACE_DEFAULT_BACKLOG SOMAXCONN
+#define ACE_DEFAULT_CDR_MEMCPY_TRADEOFF 1048576
+
+#include "ace/config-linux.h"
+
