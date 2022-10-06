@@ -22,8 +22,7 @@ mkdir -p $RES_TMP
 mkdir -p $RES_RPMS
 
 # download and install packages required for build
-sudo yum -y install spectool yum-utils rpmdevtools redhat-rpm-config rpm-build libtool \
-  glib2-devel gcc-c++ epel-rpm-macros cmake3 \
+sudo yum -y install spectool yum-utils rpmdevtools redhat-rpm-config rpm-build epel-rpm-macros \
   || \
   { echo "can't install base packages" >&2 ; exit 1 ; }
 
@@ -37,15 +36,14 @@ rm -f "$RPM_SOURCES_DIR/ace-tao-$VERSION-$RELEASE.tar.gz"
 pushd "$RES_TMP"
 
 rm -rf ACE_TAO
-git clone https://github.com/yoori/ACE_TAO.git ACE_TAO
+echo ">>>> git clone --branch $TAG https://github.com/yoori/ACE_TAO.git ACE_TAO"
+git clone -c advice.detachedHead=false --branch $TAG https://github.com/yoori/ACE_TAO.git ACE_TAO
 
 pushd ACE_TAO
-git checkout tags/$TAG
 
-git clone https://github.com/yoori/MPC.git MPC
-cd MPC
-git checkout tags/$TAG
-cd ..
+git clone -c advice.detachedHead=false --branch $TAG https://github.com/yoori/MPC.git MPC
+
+echo "Before RPM/git-archive-all.sh pwd : $(pwd)"
 
 RPM/git-archive-all.sh --format tar.gz "$RPM_SOURCES_DIR/ace-tao-$VERSION-$RELEASE.tar.gz" \
   || \
@@ -53,22 +51,19 @@ RPM/git-archive-all.sh --format tar.gz "$RPM_SOURCES_DIR/ace-tao-$VERSION-$RELEA
 
 popd
 
-echo "archive created in $RPM_SOURCES_DIR/ace-tao-$VERSION.tar.gz"
+BIN_RPM_FOLDER=$(rpm -E '%_rpmdir/%_arch')
 
-BIN_RPM_FOLDER=`rpm -E '%_rpmdir/%_arch'`
+echo "Before spec cp: $(pwd)"
 
-SPEC_FILE=`rpm -E %_specdir`/ace-tao.spec
-cp RPM/SPECS/ace-tao.spec "$SPEC_FILE"
+SPEC_FILE=$(rpm -E %_specdir)/ace-tao-$VERSION-$RELEASE.spec
+cp ACE_TAO/RPM/SPECS/ace-tao.spec "$SPEC_FILE"
+
+echo ">>>> build dep"
 
 $SUDO_PREFIX yum-builddep -y --define "_version $VERSION" --define "_release $RELEASE" "$SPEC_FILE" || \
   { echo "can't install build requirements" >&2 ; exit 1 ; }
 
-echo "to download source"
-
-spectool --force -g -R --define "_version $VERSION" --define "_release $RELEASE" "$SPEC_FILE" || \
-  { echo "can't download source RPM" >&2 ; exit 1 ; }
-
-echo "to build rpm"
+echo ">>>> to build rpm"
 
 rpmbuild --force -ba --define "_version $VERSION" --define "_release $RELEASE" "$SPEC_FILE" || \
   { echo "can't build RPM" >&2 ; exit 1 ; }
