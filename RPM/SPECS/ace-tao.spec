@@ -8,7 +8,7 @@ Release:        %{_release}%{?dist}
 Group:          Development/Libraries/C and C++
 URL:            http://www.cs.wustl.edu/~schmidt/ACE.html
 License:        DOC License
-Source0:        ace-tao-%version.tar.gz
+Source0:        ace-tao-%{_version}-%{_release}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-buildroot
 BuildRequires:  redhat-rpm-config elfutils 
 BuildRequires:  gcc-c++ libstdc++-devel openssl-devel zlib-devel bzip2-devel
