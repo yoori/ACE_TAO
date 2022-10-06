@@ -3,8 +3,8 @@
 Summary:        The ADAPTIVE Communication Environment (ACE) and The ACE ORB (TAO)
 Name:           ace-tao%{?_with_valgrind:-valgrind}
 Conflicts:      ace-tao%{?!_with_valgrind:-valgrind}
-Version:        6.2.1.12
-Release:        1%{?dist}
+Version:        %{_version}
+Release:        %{_release}%{?dist}
 Group:          Development/Libraries/C and C++
 URL:            http://www.cs.wustl.edu/~schmidt/ACE.html
 License:        DOC License
@@ -37,7 +37,8 @@ conventional ORBs for high-performance and real-time applications.
 %package -n     ace-tao%{?_with_valgrind:-valgrind}-devel
 Conflicts:      ace-tao%{?!_with_valgrind:-valgrind}-devel
 Summary:        Header files and development components for ACE
-Version:        6.2.1.12
+Version:        %{_version}
+Release:        %{_release}%{?dist}
 Group:          Development/Libraries/C and C++
 Requires:       ace-tao%{?_with_valgrind:-valgrind} = %{version}
 Requires:       openssl-devel
@@ -51,30 +52,28 @@ using ACE and TAO.
 %setup -q -n ace-tao-%version/ace-tao-ciao/ACE_wrappers
 
 %build
-export ACE_ROOT=$(pwd)
-export TAO_ROOT="${ACE_ROOT}/TAO"
-export CIAO_ROOT="${ACE_ROOT}"
-export DANCE_ROOT="${ACE_ROOT}"
-export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}"
+export ACE_TAO_MPC_ROOT=$(pwd)
+export ACE_ROOT=${ACE_TAO_MPC_ROOT}/ACE_TAO/ACE
+export TAO_ROOT=${ACE_TAO_MPC_ROOT}/ACE_TAO/TAO
+export MPC_ROOT=${ACE_TAO_MPC_ROOT}/MPC
 cd "${TAO_ROOT}"
-"${ACE_ROOT}/bin/mwc.pl" -type gnuace TAO_ACE.mwc
+"${ACE_ROOT}/bin/mwc.pl" rTAO.mwc -type gnuace
 make valgrind=%{_enable_valgrind} %{?_smp_mflags}
 
 %install
-export ACE_ROOT=$(pwd)
-export TAO_ROOT="${ACE_ROOT}/TAO"
-export CIAO_ROOT="${ACE_ROOT}"
-export DANCE_ROOT="${ACE_ROOT}"
-export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}"
+export ACE_TAO_MPC_ROOT=$(pwd)
+export ACE_ROOT=${ACE_TAO_MPC_ROOT}/ACE_TAO/ACE
+export TAO_ROOT=${ACE_TAO_MPC_ROOT}/ACE_TAO/TAO
+export MPC_ROOT=${ACE_TAO_MPC_ROOT}/MPC
 cd "${TAO_ROOT}"
 make valgrind=%{_enable_valgrind} %{?_smp_mflags} \
   install DESTDIR=%{buildroot} INSTALL_PREFIX=/usr INSTALL_LIB=lib64
 
 %files
 %defattr(-,root,root,-)
-%{_libdir}/libACE*.so.6.2.1
-%{_libdir}/libKokyu*.so.6.2.1
-%{_libdir}/libTAO*.so.2.2.1
+%{_libdir}/libACE*.so.7.0.9
+#%{_libdir}/libKokyu*.so.7.0.9
+%{_libdir}/libTAO*.so.3.0.9
 %doc AUTHORS COPYING README THANKS VERSION
 
 %files -n ace-tao%{?_with_valgrind:-valgrind}-devel
