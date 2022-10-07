@@ -49,7 +49,7 @@ This package contains the components needed for developing programs
 using ACE and TAO.
 
 %prep
-%setup -q -n ace-tao-%{_version}-%{_release}
+%setup -q -n ace-tao-%{_version}-%{_release}/
 
 %build
 export ACE_TAO_MPC_ROOT=$(pwd)
@@ -72,9 +72,11 @@ make valgrind=%{_enable_valgrind} %{?_smp_mflags} \
 %files
 %defattr(-,root,root,-)
 %{_libdir}/libACE*.so.7.0.9
-#%{_libdir}/libKokyu*.so.7.0.9
 %{_libdir}/libTAO*.so.3.0.9
-%doc AUTHORS COPYING README THANKS VERSION
+%{_libdir}/libKokyu.so.7.0.9
+#%doc AUTHORS COPYING README THANKS VERSION
+/usr/share/ace/*
+/usr/share/tao/*
 
 %files -n ace-tao%{?_with_valgrind:-valgrind}-devel
 %{_bindir}/*
