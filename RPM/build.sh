@@ -59,15 +59,15 @@ tar -czvf "$RPM_SOURCES_DIR/ace-tao-$VERSION-$RELEASE.tar.gz" "ace-tao-$VERSION-
 #  || \
 #  { echo "can't archive source" >&2 ; exit 1 ; }
 
-popd
-
-BIN_RPM_FOLDER=$(rpm -E '%_rpmdir/%_arch')
-
 echo "Before spec cp: $(pwd)"
 ls -l
 
 SPEC_FILE=$(rpm -E %_specdir)/ace-tao-$VERSION-$RELEASE.spec
 cp "ace-tao-$VERSION-$RELEASE/ACE_TAO/RPM/SPECS/ace-tao.spec" "$SPEC_FILE"
+
+popd
+
+BIN_RPM_FOLDER=$(rpm -E '%_rpmdir/%_arch')
 
 echo ">>>> build dep"
 
