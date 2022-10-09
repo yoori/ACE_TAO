@@ -193,10 +193,6 @@ TAO_Stub::base_profiles (const TAO_MProfile &mprofiles)
 ACE_INLINE CORBA::Boolean
 TAO_Stub::next_profile_retry_i ()
 {
-  ACE_MT (ACE_GUARD_RETURN (TAO_SYNCH_MUTEX,
-                            guard,
-                            this->profile_lock_,
-                            0));
   if (TAO_debug_level > 5)
     {
       TAOLIB_DEBUG ((LM_DEBUG,
