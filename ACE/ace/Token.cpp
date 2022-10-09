@@ -159,6 +159,8 @@ ACE_Token::ACE_Token_Queue::insert_entry (ACE_Token::ACE_Token_Queue_Entry &entr
     }
 }
 
+void (* ACE_Token::waiters_callback_)(int waiters) = 0;
+
 ACE_Token::ACE_Token (const ACE_TCHAR *name, void *any)
   : lock_ (name, (ACE_mutexattr_t *) any),
     owner_ (ACE_OS::NULL_thread),
@@ -232,6 +234,11 @@ ACE_Token::shared_acquire (void (*sleep_hook_func)(void *),
                                              this->attributes_);
   queue->insert_entry (my_entry, this->queueing_strategy_);
   ++this->waiters_;
+
+  if (this->waiters_callback_)
+  {
+    this->waiters_callback_ (this->waiters_);
+  }
 
   // Execute appropriate <sleep_hook> callback.  (@@ should these
   // methods return a success/failure status, and if so, what should

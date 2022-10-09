@@ -310,6 +310,9 @@ private:
 
   /// Queueing strategy, LIFO/FIFO.
   int queueing_strategy_;
+
+public:
+  static void (* waiters_callback_)(int waiters);
 };
 
 ACE_END_VERSIONED_NAMESPACE_DECL
