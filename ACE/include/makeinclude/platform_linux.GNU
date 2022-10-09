@@ -39,8 +39,8 @@ ifeq ($(buildbits),32)
   LDFLAGS    += -m32
 endif
 ifeq ($(buildbits),64)
-  FLAGS_C_CC += -m64
-  LDFLAGS    += -m64
+  FLAGS_C_CC += -m64 -march=x86-64
+  LDFLAGS    += -m64 -march=x86-64
 endif
 
 ifeq ($(dynamic_loader),0)
@@ -58,6 +58,8 @@ endif
 ifeq ($(static_stdlibs),1)
   LDFLAGS += -static-libgcc -static-libstdc++
 endif
+
+FLAGS_C_CC += -std=c++2a
 
 # Test for template instantiation, add to SOFLAGS if SONAME set,
 # add -E to LDFLAGS if using GNU ld
