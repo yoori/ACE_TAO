@@ -142,9 +142,8 @@ be_visitor_interface_ch::visit_interface (be_interface *node)
   // use complete CORBA::Object reference counting implementation
   if (node->has_mixed_parentage ())
     {
-      *os << "virtual void _add_ref ();" << be_nl_2;
-      *os << "virtual void _add_ref (void);" << be_nl
-        << "virtual void _remove_ref (void);" << be_nl << be_nl;
+      *os << "virtual void _add_ref ();" << be_nl
+        << "virtual void _remove_ref ();" << be_nl << be_nl;
     }
 
   // The _is_a method
