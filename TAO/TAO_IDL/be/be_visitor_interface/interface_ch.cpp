@@ -138,9 +138,13 @@ be_visitor_interface_ch::visit_interface (be_interface *node)
 
   // If we inherit from both CORBA::Object and CORBA::AbstractBase,
   // we have to override _add_ref() to avoid ambiguity.
+  // _remove_ref() should be overrided because CORBA::AbstractBase must
+  // use complete CORBA::Object reference counting implementation
   if (node->has_mixed_parentage ())
     {
       *os << "virtual void _add_ref ();" << be_nl_2;
+      *os << "virtual void _add_ref (void);" << be_nl
+        << "virtual void _remove_ref (void);" << be_nl << be_nl;
     }
 
   // The _is_a method

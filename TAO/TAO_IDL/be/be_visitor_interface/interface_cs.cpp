@@ -225,6 +225,12 @@ be_visitor_interface_cs::visit_interface (be_interface *node)
           << "this->::CORBA::Object::_add_ref ();"
           << be_uidt_nl
           << "}" << be_nl_2;
+      *os << "void" << be_nl
+          << node->name () << "::_remove_ref (void)" << be_nl
+          << "{" << be_idt_nl
+          << "this->::CORBA::Object::_remove_ref ();"
+          << be_uidt_nl
+          << "}" << be_nl_2;
     }
 
   // The _narrow method
