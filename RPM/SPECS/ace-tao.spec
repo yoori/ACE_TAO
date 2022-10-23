@@ -12,7 +12,7 @@ Source0:        ace-tao-%{_version}-%{_release}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-buildroot
 BuildRequires:  redhat-rpm-config elfutils 
 BuildRequires:  gcc-c++ libstdc++-devel openssl-devel zlib-devel bzip2-devel lzo-devel
-BuildRequires:  perl perl(Data::Dumper)
+BuildRequires:  perl-interpreter perl(Data::Dumper)
 Provides:       ace-tao = %{version}
 
 %description
