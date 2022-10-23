@@ -139,8 +139,8 @@ LD_RPATH_FLAGS += -Wl,--enable-new-dtags
 # for you): _SVID_SOURCE _BSD_SOURCE _POSIX_SOURCE _POSIX_C_SOURCE=199506L, ...
 CPPFLAGS += -D_GNU_SOURCE
 
-DCFLAGS  += -ggdb
-DCCFLAGS += -ggdb
+DCFLAGS  += -ggdb3
+DCCFLAGS += -ggdb3
 DLD      = $(CXX)
 LD       = $(CXX)
 
