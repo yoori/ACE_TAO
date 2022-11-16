@@ -912,7 +912,9 @@ TAO_GIOP_Message_Base::write_protocol_header (GIOP::MsgType type,
       0x47, // 'G'
       0x49, // 'I'
       0x4f, // 'O'
-      0x50  // 'P'
+      0x50, // 'P'
+      0, 0, 0, 0,
+      0, 0, 0, 0
     };
 
   header[4] = version.major;
